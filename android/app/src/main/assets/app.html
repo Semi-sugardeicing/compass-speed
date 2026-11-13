@@ -1,0 +1,3531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0E0F11">
+<meta name="color-scheme" content="light dark">
+<title>指南针 · 测速</title>
+<style>
+/* ============================================================
+   指南针测速 · 设计变量
+   风格参考：浅灰纸感 + 近黑文字 + 极简的橙点缀
+   ============================================================ */
+
+:root {
+  /* ---------- 字体 ---------- */
+  --font: "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei",
+          system-ui, -apple-system, sans-serif;
+  --num: "SF Pro Display", "Inter", "Helvetica Neue", system-ui, -apple-system, sans-serif;
+
+  /* ---------- 圆角 ---------- */
+  --radius: 14px;        /* 卡片、大按钮 */
+  --radius-sm: 10px;     /* 小元素 */
+  --radius-pill: 999px;  /* 胶囊 */
+
+  /* ---------- 安全区 ---------- */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --top-gap: 10px;
+
+  /* ---------- 动效 ---------- */
+  --ease: cubic-bezier(.2, .8, .2, 1);
+
+  /* ---------- 速度色阶（轨迹着色） ---------- */
+  --c-slow: #3DD9C0;
+  --c-mid: #C8FF2E;
+  --c-fast: #FFB020;
+  --c-max: #FF3B30;
+}
+
+/* ============================================================
+   浅色主题（默认，跟参考图）
+   ============================================================ */
+html[data-theme="light"] {
+  /* 背景层次：纸感浅灰，不是纯白 */
+  --bg: #F1F2F4;          /* 页面底色 83% 主色 */
+  --bg-2: #FFFFFF;        /* 浮层/面板 */
+  --surface: #FFFFFF;     /* 卡片 */
+  --surface-2: #E8E9EC;   /* 次级块 */
+
+  /* 线条 */
+  --line: #DFDFE2;        /* 分隔线 4% */
+
+  /* 文字 */
+  --text: #17181C;        /* 近黑 6% */
+  --muted: #7C7575;       /* 暖调中灰 2% */
+  --faint: #A8A2A2;       /* 更浅的辅助 */
+
+  /* 强调：只用于小面积点缀 */
+  --accent: #C8401A;      /* 砖橙，比纯橙更沉，跟浅底更配 */
+  --neon: #6E8F1F;        /* 暗一点的青绿（浅底上才够对比） */
+
+  /* 刻度 */
+  --tick-major: #3A3C42;
+  --tick-minor: #C3C5CA;
+
+  /* 玻璃（设置键） */
+  --glass: rgba(255, 255, 255, .78);
+  --glass-line: rgba(0, 0, 0, .07);
+
+  /* 阴影：极轻，靠留白和线条分层，不靠阴影 */
+  --shadow: 0 1px 3px rgba(23, 24, 28, .05);
+  --shadow-lg: 0 8px 28px rgba(23, 24, 28, .10);
+
+  /* 按钮 */
+  --btn-primary-bg: #17181C;
+  --btn-primary-fg: #F1F2F4;
+}
+
+/* ============================================================
+   深色主题
+   ============================================================ */
+html[data-theme="dark"] {
+  --bg: #0F1013;
+  --bg-2: #191B1F;
+  --surface: #1B1D22;
+  --surface-2: #23262C;
+
+  --line: #2C2F36;
+
+  --text: #F0F1F3;
+  --muted: #9A9696;
+  --faint: #6E6A6A;
+
+  --accent: #E2562C;
+  --neon: #C8FF2E;
+
+  --tick-major: #D8DADE;
+  --tick-minor: #52565E;
+
+  --glass: rgba(255, 255, 255, .09);
+  --glass-line: rgba(255, 255, 255, .16);
+
+  --shadow: none;
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, .45);
+
+  --btn-primary-bg: #F0F1F3;
+  --btn-primary-fg: #0F1013;
+}
+
+</style>
+<style>
+/* ===== 主题变量 ===== */
+/* 设计变量统一在 tokens.css，见 <link> */
+html[data-theme="light"]{
+  --bg:#F2F3F5; --bg-2:#FFF; --surface:#FFF; --surface-2:#E9EBEF;
+  --line:#D9DCE1; --text:#121417; --muted:#5C6270; --faint:#5F6673;
+  --accent:#C23A08; --neon:#4E7400;
+  --tick-major:#262A31; --tick-minor:#B4B9C2;
+  --glass:rgba(255,255,255,.55); --glass-line:rgba(255,255,255,.85);
+  --c-slow:#0E9F8A; --c-mid:#7FA51C; --c-fast:#D98600; --c-max:#D02A20;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--font);
+  overflow:hidden;user-select:none;-webkit-font-smoothing:antialiased;
+  transition:background .3s,color .3s;
+}
+button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer}
+
+.screen{
+  position:fixed;inset:0;display:flex;flex-direction:column;
+  padding:calc(var(--safe-t) + var(--top-gap, 10px) + 34px) 0 calc(var(--safe-b) + 8px);
+  opacity:0;visibility:hidden;transform:scale(.99);
+  transition:opacity .24s var(--ease),transform .24s var(--ease),visibility .24s;
+}
+.screen.is-active{opacity:1;visibility:visible;transform:none}
+
+/* 顶栏 */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:52px;flex-shrink:0}
+.icon-btn{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;position:relative;transition:transform .12s var(--ease),background .18s}
+.icon-btn svg{width:22px;height:22px}
+.glass-btn{
+  background:var(--glass);border:1px solid var(--glass-line);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.32);
+  color:var(--text);
+}
+html[data-theme="dark"] .glass-btn{box-shadow:0 2px 10px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.18)}
+.glass-btn:hover{background:rgba(255,255,255,.16)}
+html[data-theme="light"] .glass-btn:hover{background:rgba(255,255,255,.8)}
+.back-btn{color:var(--text)}
+.back-btn:active{background:var(--surface-2)}
+.icon-btn:active{transform:scale(.92)}
+.icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.back-btn.is-disabled{opacity:.32;cursor:default}
+.back-btn.is-disabled:active{background:none}
+
+/* 方向大字 */
+.dir-head{text-align:center;padding:8px 20px 0;flex-shrink:0}
+.dir-line{
+  font-size:clamp(40px,11.6vw,54px);font-weight:700;letter-spacing:-.02em;
+  line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.dir-line .cn{font-weight:600;margin-left:10px;letter-spacing:.02em}
+.dir-sub{margin-top:8px;font-size:12px;color:var(--faint);letter-spacing:.14em;font-weight:600}
+
+/* 横向指南针 */
+.compass-strip{position:relative;flex:1;min-height:0;margin-top:2px;display:flex;flex-direction:column;justify-content:center;padding-bottom:0;overflow:visible}
+.strip-top-arc{height:56px;margin:0 16px;position:relative;flex-shrink:0;padding-top:12px}
+.strip-arc{width:100%;height:100%;display:block;overflow:visible}
+.arc-tag{
+  position:absolute;top:2px;font-family:var(--num);font-size:11px;
+  color:var(--faint);letter-spacing:.02em;font-variant-numeric:tabular-nums;
+  font-weight:600;
+}
+.arc-tag#arcTagL{left:0}
+.arc-tag#arcTagR{right:0}
+.arc-tag.mid{
+  left:50%;transform:translateX(-50%);top:0;
+}
+.strip-body{position:relative;height:210px;overflow:hidden;flex-shrink:0;margin-top:2px}
+.strip-fade-l,.strip-fade-r{position:absolute;top:0;bottom:0;width:64px;z-index:3;pointer-events:none}
+.strip-fade-l{left:0;background:linear-gradient(90deg,var(--bg) 8%,transparent 100%)}
+.strip-fade-r{right:0;background:linear-gradient(270deg,var(--bg) 8%,transparent 100%)}
+.strip-viewport{position:absolute;inset:0;overflow:hidden;contain:strict}
+.strip-tape{position:absolute;top:0;left:50%;height:100%;width:0;will-change:transform}
+.tick{position:absolute;bottom:0;width:1px;background:var(--tick-minor)}
+.tick.major{width:2px;background:var(--tick-major)}
+.tick.half{width:1.5px;background:var(--tick-minor)}
+.tick-label{
+  position:absolute;bottom:126px;transform:translateX(-50%);
+  font-family:var(--num);font-size:14px;font-weight:700;color:var(--muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1;
+}
+.tick-label.is-n{color:var(--accent);font-weight:800}
+.tick-label.is-card{color:var(--text);font-weight:800;font-size:15px}
+.strip-center{position:absolute;left:50%;bottom:0;width:2px;height:112px;margin-left:-1px;background:var(--accent);z-index:4;border-radius:1px}
+.strip-center-dot{
+  position:absolute;left:50%;bottom:114px;width:10px;height:10px;margin-left:-5px;
+  border-radius:50%;background:var(--accent);z-index:5;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent);
+}
+
+/* 首页信息 */
+.info-block{padding:0 26px;flex-shrink:0}
+.info-row{display:flex;align-items:baseline;justify-content:space-between;padding:11px 2px;border-top:1px solid var(--line)}
+.info-k{font-size:14px;color:var(--muted);letter-spacing:.04em}
+.info-v{font-family:var(--num);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+.info-v small{font-family:var(--font);font-size:12px;color:var(--muted);margin-left:3px;font-weight:500}
+/* 模拟演示：和位置/海拔同一套行样式，但可点 */
+.info-row.info-btn{
+  width:100%;text-align:left;position:relative;border-radius:0;
+  transition:background .15s;
+}
+.info-row.info-btn:hover{background:color-mix(in srgb,var(--surface) 60%,transparent)}
+.info-row.info-btn:active{background:var(--surface)}
+.info-row.info-btn .info-k{display:flex;align-items:center;gap:7px}
+.info-row.info-btn .info-k svg{width:15px;height:15px;color:var(--accent);flex-shrink:0}
+.info-row.info-btn .info-v{color:var(--accent);font-family:var(--font);font-size:14px;font-weight:600;display:flex;align-items:center;gap:5px}
+.info-row.info-btn .info-v svg{width:14px;height:14px}
+
+/* GPS 信号：像电量条 */
+.info-row.info-gps{align-items:center}
+
+/* 顶栏中间槽位：标题在上，GPS 信号条在下 */
+.topbar-mid{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex:1;min-width:0;padding:0 6px;gap:3px;
+}
+.topbar-mid .speed-title,
+.topbar-mid .rp-title{flex:0 0 auto;line-height:1.15}
+
+/* ===== GPS 信号条（嵌在顶栏里） ===== */
+.gps-float{
+  display:inline-flex;align-items:center;gap:5px;
+  height:24px;padding:0 9px;
+  border-radius:var(--radius-pill);
+  background:var(--surface);
+  border:1px solid var(--line);
+  font-family:var(--num);font-size:11px;font-weight:700;
+  letter-spacing:.02em;color:var(--muted);
+  transition:opacity .25s var(--ease),color .25s,border-color .25s;
+  white-space:nowrap;flex-shrink:0;
+}
+.gps-ico{width:13px;height:13px;flex-shrink:0;color:var(--muted);transition:color .25s}
+.gps-label{font-family:var(--font);font-size:11px;font-weight:600;letter-spacing:.06em}
+.gps-float .gps-bar{
+  display:block;width:44px;height:5px;border-radius:3px;
+  background:var(--surface-2);overflow:hidden;flex-shrink:0;
+}
+.gps-float .gps-bar i{
+  display:block;height:100%;width:0;border-radius:3px;
+  background:var(--c-mid);
+  transition:width .35s var(--ease),background .3s;
+}
+.gps-float .gps-pct{
+  font-variant-numeric:tabular-nums;min-width:30px;text-align:right;
+  color:var(--text);font-size:12px;
+}
+/* 状态色 */
+.gps-float.is-weak{border-color:color-mix(in srgb,var(--c-fast) 45%,transparent)}
+.gps-float.is-weak .gps-pct{color:var(--c-fast)}
+.gps-float.is-weak .gps-ico{color:var(--c-fast)}
+.gps-float.is-none{opacity:.55;border-color:var(--line)}
+.gps-float.is-none .gps-pct{color:var(--muted);font-weight:500;font-size:11px}
+.gps-float.is-none .gps-ico{color:var(--muted)}
+.cta-wrap{padding:18px 20px 6px;flex-shrink:0;margin-top:auto}
+.cta-row{display:flex;gap:10px}
+.cta{
+  flex:1;min-height:58px;border-radius:16px;background:var(--btn-primary-bg);color:var(--btn-primary-fg);
+  font-size:16px;font-weight:700;letter-spacing:.03em;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:transform .12s var(--ease),opacity .15s,background .15s,border-color .15s;
+  white-space:nowrap;
+}
+.cta:active{transform:scale(.975);opacity:.9}
+.cta svg{width:21px;height:21px;flex-shrink:0}
+/* 历史：描边次级按钮 */
+.cta-ghost{
+  flex:0 0 38%;max-width:130px;
+  background:transparent;color:var(--text);
+  border:1px solid var(--line);
+  font-size:15px;font-weight:600;
+}
+.cta-ghost:hover{background:var(--surface);border-color:#3A3E46}
+html[data-theme="light"] .cta-ghost:hover{background:var(--surface-2)}
+.cta-ghost:active{transform:scale(.975)}
+
+/* ===== 速度页 ===== */
+.speed-title{font-size:14px;font-weight:600;color:var(--muted);letter-spacing:.1em}
+.speed-title b{color:var(--text);font-weight:700}
+
+/* 速度数字 + 右侧单位 */
+.readout{flex-shrink:0;text-align:center;padding:4px 20px 0}
+.speed-row{display:flex;align-items:flex-start;justify-content:center;gap:8px}
+.speed-num{
+  font-family:var(--num);font-weight:700;font-variant-numeric:tabular-nums;
+  font-size:clamp(80px,23vw,110px);line-height:1;letter-spacing:-.05em;
+  color:var(--text);transition:color .3s;
+}
+.speed-num.is-live{color:var(--accent)}
+.unit-col{
+  display:flex;flex-direction:column;align-items:flex-start;
+  padding-top:clamp(14px,4vw,20px);gap:2px;
+}
+.unit-main{
+  font-family:var(--num);font-size:20px;font-weight:700;color:var(--text);
+  letter-spacing:.01em;line-height:1.1;white-space:nowrap;
+}
+.unit-sub{font-size:11px;color:var(--faint);letter-spacing:.06em;white-space:nowrap}
+
+.mode-pill{
+  margin:16px auto 0;display:inline-flex;align-items:center;gap:10px;
+  padding:11px 20px;border-radius:999px;background:var(--surface);border:1px solid var(--line);
+}
+.mode-pill svg{width:22px;height:22px;color:var(--accent);flex-shrink:0}
+.mode-pill .mlabel{font-size:17px;font-weight:700;white-space:nowrap}
+.mode-pill.is-idle .mlabel{color:var(--muted);font-weight:600;font-size:15px}
+.mode-pill.is-idle svg{color:var(--faint)}
+
+/* 传感器行 */
+.sensor-row{
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  margin-top:12px;padding:0 20px;flex-shrink:0;
+}
+.sensor-chip{
+  display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;
+}
+.sensor-chip svg{width:13px;height:13px;opacity:.7}
+.sensor-chip .v{color:var(--text);font-weight:600}
+.sensor-bar{
+  width:64px;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden;position:relative;
+}
+.sensor-bar i{position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--c-mid);margin-left:-1px;transition:left .08s linear,background .2s}
+
+/* 轨迹图 */
+.track-wrap{
+  flex:1;min-height:86px;margin:14px 20px 0;position:relative;
+  border-radius:var(--radius);background:var(--surface);overflow:hidden;
+  border:1px solid var(--line);
+  touch-action:none;cursor:grab;
+}
+.track-wrap.is-drag{cursor:grabbing}
+#trackCanvas{width:100%;height:100%;display:block}
+.track-empty{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:var(--faint);letter-spacing:.06em;pointer-events:none;
+}
+.track-legend{
+  position:absolute;left:10px;bottom:9px;display:flex;align-items:center;gap:5px;pointer-events:none;
+  width:120px;
+}
+.legend-grad{
+  flex:1;height:4px;border-radius:2px;min-width:36px;
+  background:linear-gradient(90deg,var(--c-slow),var(--c-mid),var(--c-fast),var(--c-max));
+}
+.legend-t{font-size:10px;color:var(--faint);letter-spacing:.04em;white-space:nowrap;flex-shrink:0}
+.track-badge{
+  position:absolute;top:8px;right:10px;font-size:10px;color:var(--muted);
+  letter-spacing:.08em;font-variant-numeric:tabular-nums;
+}
+.track-reset{
+  position:absolute;top:6px;left:8px;height:26px;padding:0 9px;border-radius:8px;
+  background:var(--surface-2);color:var(--muted);font-size:10px;font-weight:600;
+  display:none;align-items:center;gap:4px;letter-spacing:.04em;
+  border:1px solid var(--line);
+}
+.track-reset svg{width:11px;height:11px}
+.track-reset.is-show{display:flex}
+.track-reset:active{transform:scale(.95)}
+/* 动态比例尺 */
+.scale-bar{
+  position:absolute;right:10px;bottom:8px;pointer-events:none;
+  display:flex;flex-direction:column;align-items:flex-end;gap:2px;
+}
+.scale-bar .lab{
+  font-size:10px;color:var(--text);font-weight:600;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+  background:var(--surface);padding:0 3px;
+}
+.scale-bar .geom{position:relative;height:7px}
+.scale-bar .geom .ln{
+  height:5px;background:none;border-left:1.5px solid var(--muted);
+  border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+  transition:width .25s var(--ease);
+}
+
+/* 统计 */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 20px;flex-shrink:0;margin-top:14px}
+.stat{background:var(--surface);border-radius:var(--radius);padding:12px 14px;min-width:0}
+.stat-k{font-size:10px;letter-spacing:.16em;color:var(--muted);font-weight:700;white-space:nowrap}
+.stat-v{font-family:var(--num);font-size:20px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat-v small{font-family:var(--font);font-size:10px;font-weight:600;color:var(--muted);margin-left:3px}
+
+/* 数据来源 */
+.source-line{
+  padding:10px 22px 0;font-size:12px;color:var(--muted);line-height:1.6;
+  display:flex;gap:7px;align-items:flex-start;flex-shrink:0;
+}
+.source-line svg{width:13px;height:13px;flex-shrink:0;margin-top:2px;color:var(--faint)}
+.source-line.is-ok svg{color:var(--neon)}
+.source-line.is-err svg{color:var(--accent)}
+.source-line.is-warn svg{color:var(--c-fast)}
+.source-line b{color:var(--text);font-weight:600}
+
+.speed-actions{display:flex;gap:10px;padding:12px 20px 0;flex-shrink:0}
+.speed-actions .hold-btn{flex:1}
+
+/* 开始按钮 */
+.start-btn{
+  flex:1;min-height:52px;border-radius:16px;
+  background:var(--btn-primary-bg);color:var(--btn-primary-fg);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  font-size:15px;font-weight:700;letter-spacing:.03em;
+  transition:transform .12s var(--ease),opacity .15s,background .2s;
+}
+.start-btn svg{width:17px;height:17px;flex-shrink:0}
+.start-btn:active{transform:scale(.975);opacity:.92}
+.start-btn.is-rec{
+  background:var(--surface-2);
+  color:var(--text);
+  border:1px solid var(--line);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--neon) 30%,transparent);
+}
+.start-btn.is-rec svg{color:var(--neon)}
+.start-btn:disabled{opacity:.45;cursor:default;transform:none}
+.btn2{
+  flex:1;min-height:50px;border-radius:13px;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  font-size:14px;font-weight:600;letter-spacing:.03em;transition:background .15s,transform .1s;
+}
+.btn2:active{transform:scale(.98)}
+.btn2:hover{background:var(--surface)}
+.btn2 svg{width:17px;height:17px}
+.btn2.danger{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+
+/* 长按停止 */
+.hold-btn{
+  flex:1;min-height:52px;border-radius:16px;position:relative;overflow:hidden;
+  background:var(--surface-2);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  color:var(--accent);font-size:15px;font-weight:700;letter-spacing:.03em;
+  touch-action:none;user-select:none;-webkit-user-select:none;
+  transition:border-color .2s;
+}
+.hold-btn svg{width:18px;height:18px;flex-shrink:0;position:relative;z-index:2}
+.hold-btn .hold-txt{position:relative;z-index:2;white-space:nowrap}
+.hold-fill{
+  position:absolute;left:0;top:0;bottom:0;width:0;z-index:1;
+  background:linear-gradient(90deg, color-mix(in srgb,var(--accent) 85%, #000), color-mix(in srgb,var(--accent) 70%, #000));
+  border-radius:15px;
+  pointer-events:none;
+}
+.hold-btn.is-holding{border-color:var(--accent)}
+.hold-btn.is-holding .hold-txt,.hold-btn.is-holding svg{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.hold-btn.is-done{background:var(--accent);border-color:var(--accent);color:#fff}
+.hold-btn.is-done svg,.hold-btn.is-done .hold-txt{color:#fff}
+
+/* 设置面板 */
+.sheet-wrap{position:fixed;inset:0;z-index:30;display:none}
+.sheet-wrap.is-open{display:block}
+.sheet-mask{position:absolute;inset:0;background:rgba(0,0,0,.5);animation:fadeIn .22s var(--ease)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:var(--bg-2);
+  border-radius:22px 22px 0 0;padding:10px 22px calc(var(--safe-b) + 24px);
+  transform:translateY(100%);max-height:86vh;overflow:auto;border-top:1px solid var(--line);
+}
+.sheet-wrap.is-open .sheet{animation:up .26s var(--ease) forwards}
+@keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-grip{width:38px;height:4px;border-radius:99px;background:var(--line);margin:0 auto 20px}
+.sheet h2{margin:0 0 20px;font-size:19px;font-weight:700;letter-spacing:.02em}
+.set-group{margin-bottom:22px}
+.set-label{font-size:11px;letter-spacing:.16em;color:var(--faint);font-weight:700;margin-bottom:10px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--surface-2);border-radius:12px;padding:4px}
+.seg button{min-height:44px;border-radius:9px;font-size:14px;font-weight:600;color:var(--muted);transition:background .18s,color .18s}
+.seg button.is-on{background:var(--bg-2);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.14)}
+html[data-theme="dark"] .seg button.is-on{background:var(--surface-2);box-shadow:none;color:var(--accent)}
+/* 单位网格 */
+.unit-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.unit-opt{
+  display:flex;flex-direction:column;align-items:flex-start;gap:3px;
+  padding:11px 14px;border-radius:11px;background:var(--surface);border:1px solid transparent;
+  transition:border-color .15s,background .15s;text-align:left;
+}
+.unit-opt .code{font-family:var(--num);font-size:15px;font-weight:700;white-space:nowrap}
+.unit-opt .nm{font-size:11px;color:var(--muted);white-space:nowrap}
+.unit-opt.is-on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.unit-opt.is-on .code{color:var(--accent)}
+.opt-list{display:flex;flex-direction:column;gap:2px}
+.opt-row{display:flex;align-items:center;gap:13px;padding:13px 10px;border-radius:11px;width:100%;text-align:left;transition:background .15s}
+.opt-row:hover{background:var(--surface)}
+.opt-row svg{width:24px;height:24px;color:var(--muted);flex-shrink:0}
+.opt-row .n{font-size:15px;font-weight:600}
+.opt-row .r{margin-left:auto;font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.opt-row.is-on{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.opt-row.is-on svg,.opt-row.is-on .n{color:var(--accent)}
+/* 导入导出 */
+.io-group{margin-bottom:22px;border-top:1px solid var(--line);padding-top:18px}
+.io-row{
+  display:flex;align-items:center;gap:13px;width:100%;padding:14px 10px;border-radius:11px;
+  text-align:left;transition:background .15s;
+}
+.io-row:hover{background:var(--surface)}
+.io-row svg{width:22px;height:22px;color:var(--muted);flex-shrink:0}
+.io-row .n{font-size:15px;font-weight:600}
+.io-row .chev{margin-left:auto;color:var(--faint);width:16px;height:16px}
+.io-row:active{background:var(--surface-2)}
+
+/* 二级菜单 */
+.sub-wrap{position:fixed;inset:0;z-index:40;display:none}
+.sub-wrap.is-open{display:block}
+.sub-mask{position:absolute;inset:0;background:rgba(0,0,0,.55);animation:fadeIn .2s var(--ease)}
+.sub-panel{
+  position:absolute;left:0;right:0;bottom:0;background:var(--bg-2);
+  border-radius:22px 22px 0 0;padding:10px 22px calc(var(--safe-b) + 24px);
+  transform:translateY(100%);max-height:82vh;overflow:auto;border-top:1px solid var(--line);
+}
+.sub-wrap.is-open .sub-panel{animation:up .24s var(--ease) forwards}
+.sub-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.sub-back{
+  width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
+  color:var(--text);background:var(--surface-2);flex-shrink:0;
+}
+.sub-back svg{width:18px;height:18px}
+.sub-head h3{margin:0;font-size:17px;font-weight:700;letter-spacing:.02em}
+.sub-tip{margin:6px 0 16px;font-size:12px;color:var(--muted);line-height:1.6}
+.fmt-row{
+  display:flex;align-items:center;gap:14px;width:100%;padding:16px 14px;border-radius:12px;
+  background:var(--surface);margin-bottom:9px;text-align:left;
+  border:1px solid transparent;transition:border-color .15s,background .15s;
+}
+.fmt-row:hover{border-color:var(--line)}
+.fmt-row:active{transform:scale(.99)}
+.fmt-badge{
+  width:42px;height:42px;border-radius:11px;display:grid;place-items:center;flex-shrink:0;
+  font-family:var(--num);font-size:11px;font-weight:800;letter-spacing:.02em;
+}
+.fmt-badge.fit{background:color-mix(in srgb,var(--c-mid) 18%,transparent);color:var(--c-mid)}
+.fmt-badge.tcx{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
+.fmt-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.fmt-name{display:block;font-size:15px;font-weight:600;line-height:1.25}
+.fmt-desc{display:block;font-size:11px;color:var(--muted);line-height:1.45}
+.fmt-row .chev{width:16px;height:16px;color:var(--faint);flex-shrink:0}
+
+/* 导入区 */
+.file-drop{
+  border:1.5px dashed var(--line);border-radius:13px;padding:26px 18px;text-align:center;
+  transition:border-color .18s,background .18s;margin-bottom:12px;
+}
+.file-drop.is-over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.file-drop svg{width:30px;height:30px;color:var(--faint);margin-bottom:10px}
+.file-drop .t{font-size:14px;font-weight:600;margin-bottom:5px}
+.file-drop .s{font-size:12px;color:var(--muted);line-height:1.5}
+.pick-btn{
+  width:100%;min-height:50px;border-radius:13px;background:var(--btn-primary-bg);color:var(--btn-primary-fg);
+  font-size:15px;font-weight:700;letter-spacing:.03em;margin-bottom:10px;
+}
+.pick-btn:active{transform:scale(.985)}
+.io-msg{
+  margin-top:12px;padding:12px 14px;border-radius:11px;font-size:12px;line-height:1.6;
+  display:none;align-items:flex-start;gap:9px;
+}
+.io-msg.is-show{display:flex}
+.io-msg.ok{background:color-mix(in srgb,var(--c-mid) 12%,transparent);color:var(--text)}
+.io-msg.err{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}
+.io-msg svg{width:16px;height:16px;flex-shrink:0;margin-top:1px}
+.io-msg.ok svg{color:var(--c-mid)}
+.io-msg.err svg{color:var(--accent)}
+
+.sheet-close{width:100%;min-height:50px;border-radius:13px;background:var(--surface);font-size:15px;font-weight:600;margin-top:4px}
+
+/* ===== 屏 3：历史记录 ===== */
+.hist-head{padding:0 22px 12px;flex-shrink:0}
+.hist-title{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0}
+.hist-sub{font-size:12px;color:var(--faint);margin:7px 0 0;letter-spacing:.04em}
+.hist-list{
+  flex:1;min-height:0;overflow-y:auto;padding:0 16px calc(env(safe-area-inset-bottom,0px) + 16px);
+  -webkit-overflow-scrolling:touch;
+}
+.hist-empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:56px 20px;color:var(--faint);font-size:13px;text-align:center;line-height:1.7;
+}
+.hist-empty svg{width:38px;height:38px;opacity:.5}
+
+/* 记录行 + 左滑删除 */
+.rec{
+  position:relative;border-radius:var(--radius);margin-bottom:9px;overflow:hidden;
+  background:var(--c-max);/* 删除按钮的底色 */
+  touch-action:pan-y;
+  isolation:isolate;
+}
+/* 只有真正滑开时才露出红色，否则被 body 完全盖住 */
+.rec-body{box-shadow:0 0 0 1px var(--surface)}
+.rec-del{
+  position:absolute;top:0;right:0;bottom:0;width:84px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  color:#fff;font-size:12px;font-weight:600;letter-spacing:.05em;
+}
+.rec-del svg{width:18px;height:18px}
+.rec-body{
+  position:relative;z-index:2;display:flex;align-items:stretch;gap:12px;
+  background:var(--surface);border-radius:var(--radius);padding:11px;
+  transition:transform .22s var(--ease);
+  will-change:transform;
+}
+.rec.is-open .rec-body{transform:translateX(-84px)}
+.rec-thumb{
+  width:74px;height:56px;border-radius:9px;flex-shrink:0;overflow:hidden;
+  background:var(--surface-2);
+}
+.rec-thumb canvas{display:block;width:100%;height:100%}
+.rec-info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.rec-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.rec-when{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-type{font-size:10px;color:var(--faint);white-space:nowrap;flex-shrink:0}
+.rec-metrics{display:flex;align-items:baseline;gap:12px;margin-top:2px}
+.rec-metric{display:flex;align-items:baseline;gap:2px;white-space:nowrap}
+.rec-metric b{font-family:var(--num);font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+.rec-metric span{font-size:9.5px;color:var(--faint)}
+.rec-chev{display:flex;align-items:center;color:var(--faint);flex-shrink:0}
+.rec-chev svg{width:15px;height:15px}
+
+/* ===== 回放/报告页 ===== */
+#replay{padding-left:0;padding-right:0}
+.rp-title{
+  flex:1;min-width:0;text-align:center;font-size:14px;font-weight:600;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px;
+}
+.report{
+  flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:0 16px calc(env(safe-area-inset-bottom,0px) + 20px);
+  display:flex;flex-direction:column;gap:12px;
+}
+.rp-card{
+  background:var(--surface);border-radius:var(--radius);padding:14px;
+  border:1px solid var(--line);flex-shrink:0;
+}
+.rp-card:first-child{padding:10px 10px 12px}
+.rp-canvas-wrap{
+  height:210px;position:relative;border-radius:10px;background:var(--bg);
+  overflow:hidden;
+}
+#rpCanvas{width:100%;height:100%;display:block}
+.rp-legend{
+  position:absolute;left:10px;right:10px;bottom:9px;display:flex;align-items:center;gap:5px;pointer-events:none;
+}
+.rp-progress{
+  height:3px;border-radius:2px;background:var(--surface-2);margin:10px 2px 0;overflow:hidden;
+}
+.rp-progress i{display:block;height:100%;width:0;background:var(--accent);border-radius:2px}
+.rp-actions{display:flex;gap:9px;padding:12px 2px 0}
+.rp-actions .start-btn,.rp-actions .btn2{min-height:46px;font-size:14px}
+
+/* 总览大数字 */
+.rp-hero{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:14px}
+.rp-hero-num{
+  font-family:var(--num);font-size:52px;font-weight:700;line-height:1;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;
+}
+.rp-hero-num small{font-family:var(--font);font-size:17px;font-weight:600;color:var(--muted);margin-left:5px}
+.rp-hero-lbl{font-size:11px;color:var(--faint);letter-spacing:.14em;font-weight:600}
+
+/* 指标网格 */
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 10px}
+.mg{min-width:0}
+.mg-k{font-size:11px;color:var(--faint);letter-spacing:.04em;margin-bottom:5px}
+.mg-v{
+  font-family:var(--num);font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;
+  letter-spacing:-.01em;white-space:nowrap;line-height:1.1;
+}
+.mg-v small{font-family:var(--font);font-size:11px;font-weight:600;color:var(--muted);margin-left:3px}
+/* 无数据占位 */
+.mg.is-empty .mg-v{color:var(--faint);font-weight:600}
+.mg.is-empty .mg-k::after{
+  content:'暂无';margin-left:5px;font-size:9px;color:var(--faint);
+  background:var(--surface-2);padding:1px 5px;border-radius:4px;letter-spacing:.02em;
+}
+.noc-data{
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--line);
+  font-size:11px;color:var(--faint);line-height:1.7;display:none;
+}
+.noc-data.is-show{display:block}
+.noc-data b{color:var(--muted);font-weight:600}
+
+/* 图表 */
+.chart-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.chart-head h4{margin:0;font-size:14px;font-weight:700;letter-spacing:.02em}
+.chart-sub{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.chart-cv{width:100%;height:120px;display:block}
+
+/* 分段 */
+.seg-list{display:flex;flex-direction:column}
+.seg-row{
+  display:grid;grid-template-columns:26px 1fr 1fr 1fr;gap:8px;align-items:center;
+  padding:11px 2px;border-top:1px solid var(--line);font-size:12px;
+}
+.seg-row:first-child{border-top:0}
+.seg-idx{color:var(--faint);font-family:var(--num);font-weight:700;font-size:11px}
+.seg-cell{display:flex;flex-direction:column;gap:2px;min-width:0}
+.seg-cell b{font-family:var(--num);font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.seg-cell span{font-size:9.5px;color:var(--faint)}
+.seg-tag{
+  display:inline-block;padding:2px 6px;border-radius:5px;font-family:var(--num);
+  font-size:12px;font-weight:700;color:#0B0C0E;
+}
+
+/* ===== 确认弹框 ===== */
+.confirm-wrap{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:28px}
+.confirm-wrap.is-open{display:flex}
+.confirm-mask{position:absolute;inset:0;background:rgba(0,0,0,.6);animation:fadeIn .18s var(--ease)}
+.confirm-box{
+  position:relative;width:100%;max-width:310px;background:var(--bg-2);
+  border-radius:18px;padding:24px 22px 18px;text-align:center;
+  animation:pop .22s var(--ease);
+}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.confirm-ico{
+  width:46px;height:46px;border-radius:50%;margin:0 auto 14px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--c-max) 14%,transparent);color:var(--c-max);
+}
+.confirm-ico svg{width:24px;height:24px}
+.confirm-box h3{margin:0 0 8px;font-size:17px;font-weight:700}
+.confirm-box p{margin:0 0 20px;font-size:12px;color:var(--muted);line-height:1.6}
+.confirm-btns{display:flex;gap:9px}
+.confirm-btns button{
+  flex:1;min-height:46px;border-radius:12px;font-size:14.5px;font-weight:600;
+}
+.cf-cancel{background:var(--surface-2);color:var(--text)}
+.cf-ok{background:var(--c-max);color:#fff}
+.confirm-btns button:active{transform:scale(.97)}
+
+@media (max-height:720px){
+  .strip-body{height:160px}
+  .speed-num{font-size:clamp(74px,22vw,96px)}
+  .mode-pill{margin-top:12px;padding:9px 16px}
+  .track-wrap{min-height:64px;margin-top:10px}
+  .stats{margin-top:10px}
+  .sensor-row{margin-top:8px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<script>
+/* ===== 安卓原生桥接层 ===== */
+(function(){
+  'use strict';
+  if(!window.AndroidBridge || !window.AndroidBridge.isNative) return;
+  window.__IS_NATIVE__ = true;
+  try {
+    var ins = JSON.parse(AndroidBridge.getInsets());
+    var st = (ins.insetTop != null) ? ins.insetTop : (ins.statusBar || 0);
+    document.documentElement.style.setProperty('--safe-t', st + 'px');
+    var sb = (ins.insetBottom != null) ? ins.insetBottom : (ins.navBar || 0);
+    document.documentElement.style.setProperty('--safe-b', sb + 'px');
+  } catch(e) {}
+  window.__native_onLocation = function(d){
+    if(!d) return;
+    var fake = { coords: {
+      latitude: d.lat, longitude: d.lon,
+      altitude: (d.alt != null && d.alt > -1000 && d.alt !== 0) ? d.alt : null,
+      accuracy: (d.acc > 0) ? d.acc : null,
+      speed: (d.hasSpeed && d.speed >= 0) ? d.speed : null,
+      heading: (d.hasBearing && d.bearing >= 0) ? d.bearing : null
+    }, timestamp: d.time };
+    if(window.__handleNativePos) window.__handleNativePos(fake);
+  };
+  window.__native_locationState = function(d){ if(window.__handleNativeLocState) window.__handleNativeLocState(d); };
+  window.__native_onAccel = function(d){ if(d && window.__handleNativeAccel) window.__handleNativeAccel(d); };
+  window.__native_onHeading = function(d){ if(d && d.heading >= 0 && window.__handleNativeHeading) window.__handleNativeHeading(d.heading); };
+  window.__native_onSteps = function(d){ if(d){ window.__nativeSteps = d.steps; if(window.__handleNativeSteps) window.__handleNativeSteps(d.steps); } };
+  window.__native_onPressure = function(d){ if(d){ window.__nativePressureAlt = d.alt; if(window.__handleNativePressure) window.__handleNativePressure(d); } };
+  window.__native_locationDenied = function(){ if(window.__handleNativeDenied) window.__handleNativeDenied(); };
+  window.__onBackPressed = function(){
+    var homeEl = document.getElementById('home');
+    if(homeEl && homeEl.classList.contains('is-active')) return false;
+    if(window.__goHome){ window.__goHome(); return true; }
+    return false;
+  };
+})();
+</script>
+</head>
+<body>
+
+<!-- ===== 屏 1：指南针 ===== -->
+<section class="screen is-active" id="home" aria-label="指南针">
+  <header class="topbar">
+    <button class="icon-btn back-btn is-disabled" id="btnBackHome" aria-label="返回" aria-disabled="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8.5 12l6.5 7"/></svg>
+    </button>
+    <div class="topbar-mid"><span class="gps-float"><svg class="gps-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2.4"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/><path d="M6 12a6 6 0 0 1 6-6M18 12a6 6 0 0 1-6 6" opacity=".55"/></svg><span class="gps-label">GPS</span><span class="gps-bar"><i style="width:0%"></i></span><span class="gps-pct">--</span></span></div>
+    <button class="icon-btn glass-btn" id="btnSettings" aria-label="设置">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a1.94 1.94 0 1 1-2.74 2.74l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47V21a1.94 1.94 0 1 1-3.88 0v-.1a1.6 1.6 0 0 0-1.05-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a1.94 1.94 0 1 1-2.74-2.74l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3a1.94 1.94 0 1 1 0-3.88h.1a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a1.94 1.94 0 1 1 2.74-2.74l.06.06a1.6 1.6 0 0 0 1.77.32H8.8a1.6 1.6 0 0 0 .97-1.47V3a1.94 1.94 0 1 1 3.88 0v.1a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a1.94 1.94 0 1 1 2.74 2.74l-.06.06a1.6 1.6 0 0 0-.32 1.77v.1a1.6 1.6 0 0 0 1.47.97H21a1.94 1.94 0 1 1 0 3.88h-.1a1.6 1.6 0 0 0-1.47.97z"/></svg>
+    </button>
+  </header>
+
+  <div class="dir-head">
+    <div class="dir-line"><span id="degBig">--</span>°<span class="cn" id="dirBig">等待</span></div>
+    <div class="dir-sub" id="dirSub">把手机放平，指向你想去的方向</div>
+  </div>
+
+  <div class="compass-strip">
+    <div class="strip-top-arc">
+      <svg class="strip-arc" viewBox="0 0 360 52" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="var(--accent)" stop-opacity=".55"/>
+            <stop offset="50%" stop-color="var(--accent)" stop-opacity="1"/>
+            <stop offset="100%" stop-color="var(--accent)" stop-opacity=".55"/>
+          </linearGradient>
+        </defs>
+        <path d="M6 48 A 400 400 0 0 1 354 48" fill="none" stroke="var(--line)" stroke-width="2"/>
+        <path id="arcFill" d="M6 48 A 400 400 0 0 1 354 48" fill="none" stroke="url(#arcGrad)" stroke-width="2.6" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+        <path d="M30 46 A 330 330 0 0 1 330 46" fill="none" stroke="var(--line)" stroke-width="1" opacity=".9"/>
+        <g id="arcTicks" stroke="var(--tick-minor)" stroke-width="1.2"></g>
+        <circle cx="6" cy="48" r="3" fill="var(--faint)"/>
+        <circle cx="354" cy="48" r="3" fill="var(--faint)"/>
+        <circle id="arcDot" cx="6" cy="48" r="4.2" fill="var(--accent)"/>
+      </svg>
+      <span class="arc-tag" id="arcTagL">0°</span>
+      <span class="arc-tag mid" id="arcTagM">180°</span>
+      <span class="arc-tag" id="arcTagR">360°</span>
+    </div>
+    <div class="strip-body">
+      <div class="strip-fade-l"></div><div class="strip-fade-r"></div>
+      <div class="strip-viewport"><div class="strip-tape" id="tape"></div></div>
+      <div class="strip-center"></div><div class="strip-center-dot"></div>
+    </div>
+  </div>
+
+  <div class="info-block">
+    <button class="info-row info-btn info-subtle" id="btnSimHome">
+      <span class="info-k">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16l14-8z"/></svg>
+        <span>模拟演示</span>
+      </span>
+      <span class="info-v">
+        看不到数据时试试
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+      </span>
+    </button>
+    <div class="info-row">
+      <span class="info-k">位置</span><span class="info-v" id="coordVal">定位中…</span>
+    </div>
+    <div class="info-row">
+      <span class="info-k">海拔</span><span class="info-v" id="altVal">--<small>米</small></span>
+    </div>
+  </div>
+
+  <div class="cta-wrap">
+    <div class="cta-row">
+      <button class="cta cta-ghost" id="btnHistory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"/>
+          <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5A2.5 2.5 0 0 1 20 21.5z"/>
+        </svg>
+        历史
+      </button>
+      <button class="cta" id="btnStart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 4 14h7l-1 7 9-11h-7z"/></svg>
+        开始监测
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 屏 2：测速 ===== -->
+<section class="screen" id="speed" aria-label="测速">
+  <header class="topbar">
+    <button class="icon-btn back-btn" id="btnBackSpeed" aria-label="返回首页">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8.5 12l6.5 7"/></svg>
+    </button>
+    <div class="topbar-mid"><span class="speed-title">正在测速</span><span class="gps-float"><svg class="gps-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2.4"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/><path d="M6 12a6 6 0 0 1 6-6M18 12a6 6 0 0 1-6 6" opacity=".55"/></svg><span class="gps-label">GPS</span><span class="gps-bar"><i style="width:0%"></i></span><span class="gps-pct">--</span></span></div>
+    <button class="icon-btn glass-btn" id="btnSettings2" aria-label="设置">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a1.94 1.94 0 1 1-2.74 2.74l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47V21a1.94 1.94 0 1 1-3.88 0v-.1a1.6 1.6 0 0 0-1.05-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a1.94 1.94 0 1 1-2.74-2.74l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3a1.94 1.94 0 1 1 0-3.88h.1a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a1.94 1.94 0 1 1 2.74-2.74l.06.06a1.6 1.6 0 0 0 1.77.32H8.8a1.6 1.6 0 0 0 .97-1.47V3a1.94 1.94 0 1 1 3.88 0v.1a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a1.94 1.94 0 1 1 2.74 2.74l-.06.06a1.6 1.6 0 0 0-.32 1.77v.1a1.6 1.6 0 0 0 1.47.97H21a1.94 1.94 0 1 1 0 3.88h-.1a1.6 1.6 0 0 0-1.47.97z"/></svg>
+    </button>
+  </header>
+
+  <div class="readout">
+    <div class="speed-row">
+      <div class="speed-num" id="speedNum">0</div>
+      <div class="unit-col">
+        <span class="unit-main" id="unitMain">km/h</span>
+        <span class="unit-sub" id="unitSub">公里每小时</span>
+      </div>
+    </div>
+    <div class="mode-pill is-idle" id="modePill">
+      <svg id="modeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span class="mlabel" id="modeLabel">准备中</span>
+    </div>
+  </div>
+
+  <div class="sensor-row">
+    <div class="sensor-chip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12h3l2-5 3 10 2-5h6"/></svg>
+      <span>加速度</span><span class="v" id="accVal">0.00</span><span>g</span>
+    </div>
+    <div class="sensor-bar" title="加速度方向"><i id="accBar"></i></div>
+    <div class="sensor-chip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+      <span id="motionVal">静止</span>
+    </div>
+  </div>
+
+  <div class="track-wrap" id="trackWrap">
+    <canvas id="trackCanvas"></canvas>
+    <button class="track-reset" id="trackReset">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg>
+      复位
+    </button>
+    <div class="track-empty" id="trackEmpty">开始移动后，这里会画出速度轨迹</div>
+    <div class="track-badge" id="trackBadge">0 个点</div>
+    <div class="track-legend">
+      <span class="legend-t">慢</span>
+      <span class="legend-grad"></span>
+      <span class="legend-t">快</span>
+    </div>
+    <div class="scale-bar" id="scaleBar">
+      <span class="lab" id="scaleLab">1 m</span>
+      <span class="geom"><span class="ln" id="scaleLn" style="display:block;width:40px"></span></span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-k">最高</div><div class="stat-v"><span id="statMax">0</span><small id="uMax">km/h</small></div></div>
+    <div class="stat"><div class="stat-k">平均</div><div class="stat-v"><span id="statAvg">0</span><small id="uAvg">km/h</small></div></div>
+    <div class="stat"><div class="stat-k">时长</div><div class="stat-v"><span id="statTime">0:00</span></div></div>
+  </div>
+
+  <div class="source-line" id="sourceLine">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/></svg>
+    <span id="sourceText">正在请求定位权限……</span>
+  </div>
+
+  <div class="speed-actions" style="margin-top:auto">
+    <button class="start-btn" id="btnStartRec">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 4 14h7l-1 7 9-11h-7z"/></svg>
+      <span id="startRecTxt">开始</span>
+    </button>
+    <button class="hold-btn" id="btnStop" aria-label="长按停止">
+      <span class="hold-fill" id="holdFill"></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      <span class="hold-txt" id="holdTxt">长按停止</span>
+    </button>
+  </div>
+</section>
+
+<!-- ===== 屏 3：历史记录 ===== -->
+<section class="screen" id="history" aria-label="历史记录">
+  <header class="topbar">
+    <button class="icon-btn back-btn" id="btnHistBack" aria-label="返回首页">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8.5 12l6.5 7"/></svg>
+    </button>
+    <div class="topbar-mid"><span class="rp-title" style="flex:0">历史记录</span><span class="gps-float" ><svg class="gps-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2.4"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/><path d="M6 12a6 6 0 0 1 6-6M18 12a6 6 0 0 1-6 6" opacity=".55"/></svg><span class="gps-label">GPS</span><span class="gps-bar"><i style="width:0%"></i></span><span class="gps-pct">--</span></span></div>
+    <button class="icon-btn glass-btn" id="btnSettings3" aria-label="设置">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a1.94 1.94 0 1 1-2.74 2.74l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47V21a1.94 1.94 0 1 1-3.88 0v-.1a1.6 1.6 0 0 0-1.05-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a1.94 1.94 0 1 1-2.74-2.74l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3a1.94 1.94 0 1 1 0-3.88h.1a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a1.94 1.94 0 1 1 2.74-2.74l.06.06a1.6 1.6 0 0 0 1.77.32H8.8a1.6 1.6 0 0 0 .97-1.47V3a1.94 1.94 0 1 1 3.88 0v.1a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a1.94 1.94 0 1 1 2.74 2.74l-.06.06a1.6 1.6 0 0 0-.32 1.77v.1a1.6 1.6 0 0 0 1.47.97H21a1.94 1.94 0 1 1 0 3.88h-.1a1.6 1.6 0 0 0-1.47.97z"/></svg>
+    </button>
+  </header>
+  <div class="hist-head">
+    <p class="hist-sub" id="histCount">共 0 条运动</p>
+  </div>
+  <div class="hist-list" id="histList"></div>
+</section>
+
+<!-- ===== 回放页 ===== -->
+<section class="screen" id="replay" aria-label="运动详情">
+  <header class="topbar">
+    <button class="icon-btn back-btn" id="btnReplayBack" aria-label="返回历史">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8.5 12l6.5 7"/></svg>
+    </button>
+    <div class="topbar-mid"><span class="rp-title" id="rpTitle" style="flex:0">详情</span><span class="gps-float" ><svg class="gps-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2.4"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/><path d="M6 12a6 6 0 0 1 6-6M18 12a6 6 0 0 1-6 6" opacity=".55"/></svg><span class="gps-label">GPS</span><span class="gps-bar"><i style="width:0%"></i></span><span class="gps-pct">--</span></span></div>
+    <button class="icon-btn glass-btn" id="btnRpExport" aria-label="导出这条记录">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+    </button>
+  </header>
+
+  <div class="report" id="reportScroll">
+    <!-- 轨迹 -->
+    <div class="rp-card">
+      <div class="rp-canvas-wrap">
+        <canvas id="rpCanvas"></canvas>
+        <div class="rp-legend">
+          <span class="legend-t">慢</span>
+          <span class="legend-grad"></span>
+          <span class="legend-t">快</span>
+        </div>
+      </div>
+      <div class="rp-progress"><i id="rpBar"></i></div>
+      <div class="rp-actions">
+        <button class="start-btn" id="btnRpPlay">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16l14-8z"/></svg>
+          <span id="rpPlayTxt">播放</span>
+        </button>
+        <button class="btn2" id="btnRpStop" style="flex:1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          停止
+        </button>
+      </div>
+    </div>
+
+    <!-- 总览 -->
+    <div class="rp-card">
+      <div class="rp-hero">
+        <div class="rp-hero-num"><span id="rpDist">0</span><small id="rpDistU">km</small></div>
+        <div class="rp-hero-lbl">总距离</div>
+      </div>
+      <div class="metric-grid">
+        <div class="mg"><div class="mg-k">时长</div><div class="mg-v"><span id="rpTime">0:00</span></div></div>
+        <div class="mg"><div class="mg-k">平均速度</div><div class="mg-v"><span id="rpAvg">0</span><small id="rpAvgU">km/h</small></div></div>
+        <div class="mg"><div class="mg-k">最高速度</div><div class="mg-v"><span id="rpMax">0</span><small id="rpMaxU">km/h</small></div></div>
+        <div class="mg"><div class="mg-k">平均配速</div><div class="mg-v"><span id="rpPace">--</span></div></div>
+        <div class="mg"><div class="mg-k">移动时长</div><div class="mg-v"><span id="rpMove">0:00</span></div></div>
+        <div class="mg"><div class="mg-k">估算消耗</div><div class="mg-v"><span id="rpKcal">0</span><small>千卡</small></div></div>
+        <div class="mg"><div class="mg-k">累计爬升</div><div class="mg-v"><span id="rpClimb">0</span><small>米</small></div></div>
+        <div class="mg"><div class="mg-k">运动方式</div><div class="mg-v"><span id="rpMode">--</span></div></div>
+        <div class="mg" id="mgHr"><div class="mg-k">平均心率</div><div class="mg-v"><span id="rpHr">--</span><small>次/分</small></div></div>
+        <div class="mg" id="mgStep"><div class="mg-k">步数</div><div class="mg-v"><span id="rpStep">--</span><small>步</small></div></div>
+      </div>
+      <div class="noc-data" id="noDataNote"></div>
+    </div>
+
+    <!-- 速度曲线 -->
+    <div class="rp-card">
+      <div class="chart-head">
+        <h4>速度</h4>
+        <span class="chart-sub" id="spdSub">0–0</span>
+      </div>
+      <canvas class="chart-cv" id="spdChart"></canvas>
+    </div>
+
+    <!-- 海拔曲线 -->
+    <div class="rp-card" id="altCard">
+      <div class="chart-head">
+        <h4>海拔</h4>
+        <span class="chart-sub" id="altSub">--</span>
+      </div>
+      <canvas class="chart-cv" id="altChart"></canvas>
+    </div>
+
+    <!-- 心率曲线（有数据才显示） -->
+    <div class="rp-card" id="hrCard" style="display:none">
+      <div class="chart-head">
+        <h4>心率</h4>
+        <span class="chart-sub" id="hrSub">--</span>
+      </div>
+      <canvas class="chart-cv" id="hrChart"></canvas>
+    </div>
+
+    <!-- 步频曲线（有数据才显示） -->
+    <div class="rp-card" id="cadCard" style="display:none">
+      <div class="chart-head">
+        <h4>步频</h4>
+        <span class="chart-sub" id="cadSub">--</span>
+      </div>
+      <canvas class="chart-cv" id="cadChart"></canvas>
+    </div>
+
+    <!-- 分段 -->
+    <div class="rp-card">
+      <div class="chart-head">
+        <h4>分段</h4>
+        <span class="chart-sub">每 1 公里</span>
+      </div>
+      <div class="seg-list" id="segList"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 删除确认弹框 ===== -->
+<div class="confirm-wrap" id="confirmWrap">
+  <div class="confirm-mask" data-cfclose></div>
+  <div class="confirm-box" role="dialog" aria-label="确认删除">
+    <div class="confirm-ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6M14 11v6"/></svg>
+    </div>
+    <h3>确定删除这条记录吗？</h3>
+    <p id="cfDesc">删除后找不回来。</p>
+    <div class="confirm-btns">
+      <button class="cf-cancel" id="cfCancel">取消</button>
+      <button class="cf-ok" id="cfOk">删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 设置面板 ===== -->
+<div class="sheet-wrap" id="sheet">
+  <div class="sheet-mask" data-close></div>
+  <div class="sheet" role="dialog" aria-label="设置">
+    <div class="sheet-grip"></div>
+    <h2>设置</h2>
+
+    <div class="set-group">
+      <div class="set-label">速度单位</div>
+      <div class="unit-grid" id="unitGrid"></div>
+    </div>
+
+    <div class="set-group">
+      <div class="set-label">外观</div>
+      <div class="seg" id="themeSeg">
+        <button data-theme-opt="auto">自动</button>
+        <button data-theme-opt="light">浅色</button>
+        <button data-theme-opt="dark">深色</button>
+      </div>
+    </div>
+
+    <div class="set-group">
+      <div class="set-label">移动方式</div>
+      <div class="opt-list" id="modeList">
+        <button class="opt-row" data-mode="auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4"/></svg>
+          <span class="n">自动判断</span><span class="r">按速度</span>
+        </button>
+        <button class="opt-row" data-mode="walk">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="2"/><path d="M12 8.5 9 13l2.5 2.5L10 21M12 8.5 16 11l2.5-.5M12 15.5l4 5.5"/></svg>
+          <span class="n">走路</span><span class="r">0–7</span>
+        </button>
+        <button class="opt-row" data-mode="bike">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17 9 8h5l4.5 9M9 8h3M12 8l3 9"/></svg>
+          <span class="n">自行车</span><span class="r">7–15</span>
+        </button>
+        <button class="opt-row" data-mode="ebike">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17 9 8h5l4.5 9M9 8h3M12 8l3 9"/><path d="M15.5 3.5 13.5 7h3l-2 3.5"/></svg>
+          <span class="n">电动车</span><span class="r">15–30</span>
+        </button>
+        <button class="opt-row" data-mode="car">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-3l2-5h12l2 5v3"/><path d="M3 16h18v3h-2.5M3 16v3h2.5"/><circle cx="7" cy="19" r="1.8"/><circle cx="17" cy="19" r="1.8"/></svg>
+          <span class="n">汽车</span><span class="r">30–100</span>
+        </button>
+        <button class="opt-row" data-mode="train">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="14" rx="4"/><path d="M5 11h14M9 21l2-3M15 21l-2-3"/><circle cx="9" cy="14" r=".9"/><circle cx="15" cy="14" r=".9"/></svg>
+          <span class="n">火车</span><span class="r">100–250</span>
+        </button>
+        <button class="opt-row" data-mode="plane">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3.5 12 2l1.5 1.5V9L21 13v2l-7.5-2v4.5L16 19v2l-4-1-4 1v-2l2.5-1.5V13L3 15v-2l7.5-4z"/></svg>
+          <span class="n">飞机</span><span class="r">250+</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="io-group">
+      <div class="set-label">导入与导出</div>
+      <button class="io-row" id="ioExport">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <span class="n">导出数据</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <button class="io-row" id="ioImport">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <span class="n">导入数据</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+
+    <button class="sheet-close" data-close>完成</button>
+  </div>
+</div>
+
+<!-- ===== 导出：选格式 ===== -->
+<div class="sub-wrap" id="exportSheet">
+  <div class="sub-mask" data-subclose="exportSheet"></div>
+  <div class="sub-panel" role="dialog" aria-label="导出数据">
+    <div class="sheet-grip"></div>
+    <div class="sub-head">
+      <button class="sub-back" data-subclose="exportSheet" aria-label="返回">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8.5 12l6.5 7"/></svg>
+      </button>
+      <h3>导出数据</h3>
+    </div>
+    <p class="sub-tip">选择要导出的文件格式，轨迹和速度记录会一起导出。</p>
+    <button class="fmt-row" data-export="fit">
+      <span class="fmt-badge fit">FIT</span>
+      <span class="fmt-txt">
+        <span class="fmt-name">FIT 文件</span>
+        <span class="fmt-desc">运动设备通用格式，可导入码表、手表、Strava</span>
+      </span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <button class="fmt-row" data-export="tcx">
+      <span class="fmt-badge tcx">TCX</span>
+      <span class="fmt-txt">
+        <span class="fmt-name">TCX 文件</span>
+        <span class="fmt-desc">训练中心 XML 格式，通用性好，可读</span>
+      </span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <div class="io-msg" id="exportMsg">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+      <span id="exportMsgText"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 导入：选文件 ===== -->
+<div class="sub-wrap" id="importSheet">
+  <div class="sub-mask" data-subclose="importSheet"></div>
+  <div class="sub-panel" role="dialog" aria-label="导入数据">
+    <div class="sheet-grip"></div>
+    <div class="sub-head">
+      <button class="sub-back" data-subclose="importSheet" aria-label="返回">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8.5 12l6.5 7"/></svg>
+      </button>
+      <h3>导入数据</h3>
+    </div>
+    <p class="sub-tip">只能导入 <b>.fit</b> 和 <b>.tcx</b> 两种文件，其他格式会被拒绝。</p>
+    <div class="file-drop" id="fileDrop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v5h5"/><path d="M20 8v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8z"/></svg>
+      <div class="t" id="dropTitle">拖文件到这里</div>
+      <div class="s" id="dropSub">或者点下面的按钮选择文件</div>
+    </div>
+    <button class="pick-btn" id="pickBtn">添加文件</button>
+    <input type="file" id="fileInput" accept=".fit,.tcx" style="display:none">
+    <div class="io-msg" id="importMsg">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+      <span id="importMsgText"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var root = document.documentElement;
+
+  /* ================= 单位 ================= */
+  var UNITS = [
+    { id:'kmh',  code:'km/h', name:'公里每小时', f:1,        dec:0 },
+    { id:'mph',  code:'mph',  name:'英里每小时', f:0.621371, dec:0 },
+    { id:'ms',   code:'m/s',  name:'米每秒',     f:0.277778, dec:1 },
+    { id:'fts',  code:'ft/s', name:'英尺每秒',   f:0.911344, dec:1 },
+    { id:'knot', code:'kn',   name:'节',         f:0.539957, dec:1 },
+    { id:'kmmin',code:'km/min',name:'公里每分',  f:0.0166667,dec:2 }
+  ];
+  var UNIT_KEY = 'compass.unit';
+  var unitId = localStorage.getItem(UNIT_KEY) || 'kmh';
+  function curUnit(){
+    for(var i=0;i<UNITS.length;i++) if(UNITS[i].id===unitId) return UNITS[i];
+    return UNITS[0];
+  }
+  function conv(kmh){ return kmh * curUnit().f; }
+  function fmtSpeed(kmh){
+    var u = curUnit(), v = conv(kmh);
+    var s = v.toFixed(u.dec);
+    return s;
+  }
+  function buildUnitGrid(){
+    var g = $('unitGrid'); g.innerHTML = '';
+    UNITS.forEach(function(u){
+      var b = document.createElement('button');
+      b.className = 'unit-opt' + (u.id === unitId ? ' is-on' : '');
+      b.setAttribute('data-unit', u.id);
+      b.innerHTML = '<span class="code">' + u.code + '</span><span class="nm">' + u.name + '</span>';
+      b.addEventListener('click', function(){
+        unitId = u.id;
+        localStorage.setItem(UNIT_KEY, unitId);
+        buildUnitGrid(); applyUnit();
+      });
+      g.appendChild(b);
+    });
+  }
+  function applyUnit(){
+    var u = curUnit();
+    $('unitMain').textContent = u.code;
+    $('unitSub').textContent = u.name;
+    $('uMax').textContent = u.code;
+    $('uAvg').textContent = u.code;
+  }
+
+  /* ================= 主题 ================= */
+  var THEME_KEY = 'compass.theme';
+  var mql = window.matchMedia('(prefers-color-scheme: dark)');
+  var themePref = localStorage.getItem(THEME_KEY) || 'auto';
+  function effectiveTheme(){ return (themePref==='light'||themePref==='dark') ? themePref : (mql.matches?'dark':'light'); }
+  function applyTheme(){
+    var t = effectiveTheme();
+    root.setAttribute('data-theme', t);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if(meta) meta.setAttribute('content', t==='dark'?'#0F1013':'#F1F2F4');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-theme-opt]'), function(b){
+      b.classList.toggle('is-on', b.getAttribute('data-theme-opt') === themePref);
+    });
+    drawTrack();
+  }
+  if(mql.addEventListener) mql.addEventListener('change', function(){ if(themePref==='auto') applyTheme(); });
+
+  /* ================= 横向刻度带 ================= */
+  var PX_PER_DEG = 4.2;
+  var tape, bodyTape;
+  function buildTape(el){
+    if(!el || el.dataset.built) return;
+    el.dataset.built = '1';
+    var html = '', cards = {0:'北',90:'东',180:'南',270:'西'};
+    for(var d=-360; d<=360; d+=1){
+      var x = d*PX_PER_DEG, norm = ((d%360)+360)%360;
+      var isMajor = norm%15===0, isMid = norm%5===0;
+      var h = isMajor?40:(isMid?25:14);
+      html += '<i class="tick'+(isMajor?' major':(isMid?' half':''))+'" style="left:'+x.toFixed(1)+'px;height:'+h+'px"></i>';
+      if(isMajor){
+        var lab = cards[norm] || String(norm);
+        var cls = 'tick-label'+(norm===0?' is-n':(cards[norm]?' is-card':''));
+        var lh = cards[norm]?136:130;
+        html += '<span class="'+cls+'" style="left:'+x.toFixed(1)+'px;bottom:'+lh+'px">'+lab+'</span>';
+      }
+    }
+    el.innerHTML = html;
+  }
+  var heading = 0, targetHeading = 0, headingReady = false;
+  var DIRS = [[0,'北'],[45,'东北'],[90,'东'],[135,'东南'],[180,'南'],[225,'西南'],[270,'西'],[315,'西北']];
+  function dirName(deg){
+    var best=DIRS[0], min=999;
+    for(var i=0;i<DIRS.length;i++){
+      var diff = Math.abs(((deg-DIRS[i][0]+540)%360)-180);
+      if(diff<min){ min=diff; best=DIRS[i]; }
+    }
+    return best[1];
+  }
+  /* ===== 方向稳定算法（仿手机自带指南针）=====
+     思路：手抖动是「小幅度、来回摆动、持续时间短」；
+           真实转动是「大幅度、单向、持续」。用三层判别把两者分开：
+     1) 低通：滤掉高频噪声
+     2) 迟滞锁定：小于 3° 完全不动，大于 8° 才跟
+     3) 时间确认：偏离要持续 180ms 才认可（手抖过不了这一关） */
+  var headingRaw = 0;
+  var headingHasRaw = false;
+  var HEAD_DEADZONE = 3.0;      // 死区：小于这个角度完全不动
+  var HEAD_TRIGGER = 8.0;       // 触发：大于这个角度才算真转动
+  var HEAD_ALPHA = 0.08;        // 低通系数（更小=更稳）
+  var HEAD_MAX_RATE = 110;      // 显示角每秒最多转多少度
+  var HEAD_CONFIRM_MS = 180;    // 偏离需持续多久才认可
+
+  var candidateDeg = null;      // 候选方向
+  var candidateSince = 0;       // 候选开始时间
+
+  function setHeading(deg){
+    if(deg == null || isNaN(deg)) return;
+    var d = (deg + 360) % 360;
+
+    // 1) 低通
+    if(!headingHasRaw){ headingRaw = d; headingHasRaw = true; }
+    else {
+      var diff = ((d - headingRaw + 540) % 360) - 180;
+      headingRaw = (headingRaw + diff * HEAD_ALPHA + 360) % 360;
+    }
+
+    if(!headingReady){ targetHeading = headingRaw; headingReady = true; return; }
+
+    var dev = Math.abs(((headingRaw - targetHeading + 540) % 360) - 180);
+
+    // 2) 死区：小抖动直接忽略
+    if(dev < HEAD_DEADZONE){
+      candidateDeg = null;
+      return;
+    }
+
+    // 3) 时间确认
+    var now = Date.now();
+    if(dev >= HEAD_TRIGGER){
+      // 大幅度：立刻跟（转手机时手速很快）
+      targetHeading = headingRaw;
+      candidateDeg = null;
+    } else {
+      // 中等幅度：必须持续 HEAD_CONFIRM_MS 才认
+      if(candidateDeg == null || Math.abs(((headingRaw - candidateDeg + 540) % 360) - 180) > 4){
+        candidateDeg = headingRaw;
+        candidateSince = now;
+      } else if(now - candidateSince >= HEAD_CONFIRM_MS){
+        targetHeading = candidateDeg;
+        candidateDeg = null;
+      }
+    }
+  }
+  function renderHeading(){
+    if(!tape) return;
+    tape.style.transform = 'translateX('+(-(heading*PX_PER_DEG)).toFixed(2)+'px)';
+    var d = ((heading%360)+360)%360;
+    $('degBig').textContent = Math.round(d);
+    $('dirBig').textContent = dirName(d);
+    var arc = $('arcFill'), dot = $('arcDot');
+    if(arc){
+      arc.setAttribute('stroke-dasharray', (d/360*100).toFixed(2)+' 100');
+      // 外弧 M6 48 A 400 400 —— 半径 400，起点 x=6
+      var a = Math.PI - (d/360)*Math.PI;
+      var cx = 180 - Math.cos(a)*174;
+      var cy = 48 - Math.sin(a)*37.8;
+      dot.setAttribute('cx', cx.toFixed(2));
+      dot.setAttribute('cy', cy.toFixed(2));
+    }
+  }
+
+  // 弧线刻度：沿内弧均匀打刻度（每 10° 一个，每 90° 加粗）
+  function buildArcTicks(){
+    var g = $('arcTicks');
+    if(!g || g.dataset.built) return;
+    g.dataset.built = '1';
+    var html = '';
+    var R = 330, baseY = 46, rx = 150, ry = 32;
+    for(var i=0;i<=36;i++){
+      var t = i/36, a = Math.PI - t*Math.PI;
+      var cx = 180 - Math.cos(a)*rx;
+      var yMid = baseY - Math.sin(a)*ry;
+      var isBig = i%9===0;
+      var half = (i%3===0) ? 3.4 : 2.0;
+      var y1 = yMid - half, y2 = yMid + half;
+      html += '<line x1="'+cx.toFixed(2)+'" y1="'+y1.toFixed(2)+'" x2="'+cx.toFixed(2)+'" y2="'+y2.toFixed(2)+'"'+
+              (isBig?' stroke="var(--muted)" stroke-width="1.8"':'')+'/>';
+    }
+    g.innerHTML = html;
+  }
+  var lastTick = 0;
+  function tickHeadingLoop(ts){
+    if(headingReady){
+      if(!lastTick) lastTick = ts || performance.now();
+      var now = ts || performance.now();
+      var dt = Math.min(0.1, (now - lastTick) / 1000);   // 秒，上限防止切后台后猛跳
+      lastTick = now;
+
+      var diff = ((targetHeading - heading + 540) % 360) - 180;
+      // 限速：每秒最多 HEAD_MAX_RATE 度
+      var maxStep = HEAD_MAX_RATE * dt;
+      var step;
+      if(Math.abs(diff) <= maxStep){
+        // 接近目标：缓动收敛
+        step = diff * 0.22;
+        if(Math.abs(step) < 0.02) step = diff;
+      } else {
+        step = Math.sign(diff) * maxStep;
+      }
+      heading += step;
+      heading = ((heading % 360) + 360) % 360;
+      renderHeading();
+    }
+    requestAnimationFrame(tickHeadingLoop);
+  }
+
+  /* ================= 移动方式 ================= */
+  var MODES = [
+    { id:'walk',  name:'走路',   min:0,   icon:'<circle cx="13" cy="4.5" r="2"/><path d="M12 8.5 9 13l2.5 2.5L10 21M12 8.5 16 11l2.5-.5M12 15.5l4 5.5"/>' },
+    { id:'bike',  name:'自行车', min:7,   icon:'<circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17 9 8h5l4.5 9M9 8h3M12 8l3 9"/>' },
+    { id:'ebike', name:'电动车', min:15,  icon:'<circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17 9 8h5l4.5 9M9 8h3M12 8l3 9"/><path d="M15.5 3.5 13.5 7h3l-2 3.5"/>' },
+    { id:'car',   name:'汽车',   min:30,  icon:'<path d="M4 16v-3l2-5h12l2 5v3"/><path d="M3 16h18v3h-2.5M3 16v3h2.5"/><circle cx="7" cy="19" r="1.8"/><circle cx="17" cy="19" r="1.8"/>' },
+    { id:'train', name:'火车',   min:100, icon:'<rect x="5" y="3" width="14" height="14" rx="4"/><path d="M5 11h14M9 21l2-3M15 21l-2-3"/><circle cx="9" cy="14" r=".9"/><circle cx="15" cy="14" r=".9"/>' },
+    { id:'plane', name:'飞机',   min:250, icon:'<path d="M10.5 3.5 12 2l1.5 1.5V9L21 13v2l-7.5-2v4.5L16 19v2l-4-1-4 1v-2l2.5-1.5V13L3 15v-2l7.5-4z"/>' }
+  ];
+  // 移动方式：默认 auto（自动判断），不显示"默认"字样，但程序上显式声明
+  var MODE_KEY = 'compass.mode';
+  var DEFAULT_MODE = 'auto';
+  var manualMode = localStorage.getItem(MODE_KEY) || DEFAULT_MODE;
+  if(manualMode === DEFAULT_MODE) manualMode = null;   // auto 表示不锁定，走阈值判断
+  function detect(kmh){
+    if(manualMode){ for(var i=0;i<MODES.length;i++) if(MODES[i].id===manualMode) return MODES[i]; }
+    var m = MODES[0];
+    for(var j=0;j<MODES.length;j++) if(kmh >= MODES[j].min) m = MODES[j];
+    return m;
+  }
+
+  /* ================= 状态 ================= */
+  var st = {
+    running:false, sim:false,
+    speed:0, max:0, sum:0, samples:0, startAt:0,
+    watchId:null, lastPos:null, simTimer:null, simIdx:0,
+    source:'none',        // gps | inertial | sim | gps-err
+    lastGpsAt:0, lostGpsAt:0, baseSpeed:0, inertialLast:0,
+    accel:1.0, accelSmooth:1.0, gpsAcc:0,
+    points:[],            // 轨迹点 {t, v, x, y}
+    simPos:{x:0,y:0,dir:0}, gpsBase:null
+  };
+
+  /* ================= 渲染速度 ================= */
+  function fmtTime(ms){
+    var s=Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60);
+    if(h>0) return h+':'+String(m%60).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+    return m+':'+String(s%60).padStart(2,'0');
+  }
+  function renderSpeed(){
+    var kmh = st.speed, u = curUnit();
+    $('speedNum').textContent = fmtSpeed(kmh);
+    $('speedNum').classList.toggle('is-live', kmh >= 1);
+    var moving = kmh >= 0.8;
+    var m = detect(kmh);
+    var pill = $('modePill');
+    if(!moving){
+      pill.classList.add('is-idle');
+      $('modeLabel').textContent = manualMode ? (MODES.filter(function(x){return x.id===manualMode;})[0].name+' · 静止') : '原地静止';
+    } else {
+      pill.classList.remove('is-idle');
+      $('modeLabel').textContent = m.name + (manualMode ? ' · 已锁定' : '');
+    }
+    $('modeIcon').innerHTML = m.icon;
+    $('statMax').textContent = fmtSpeed(st.max);
+    $('statAvg').textContent = fmtSpeed(st.samples ? st.sum/st.samples : 0);
+    $('statTime').textContent = fmtTime(st.startAt ? Date.now()-st.startAt : 0);
+    updateSource();
+  }
+  function updateSource(){
+    var el = $('sourceLine'), txt = $('sourceText');
+    if(st.source === 'inertial'){
+      var left = Math.max(0, Math.round((INERTIAL_MAX_MS - (Date.now() - st.lostGpsAt))/1000));
+      el.className = 'source-line is-warn';
+      txt.innerHTML = '数据来源：<b>传感器推算</b> · GPS 已断 ' + left + ' 秒，' +
+                      (left > 0 ? '速度仅供参考' : '<b>已失效</b>，请等待 GPS 恢复');
+    } else if(st.source === 'gps'){
+      el.className = 'source-line is-ok';
+      txt.innerHTML = '数据来源：<b>GPS 定位</b> · 精度约 ' + (st.gpsAcc||'?') + ' 米';
+    } else if(st.source === 'sim'){
+      el.className = 'source-line is-ok';
+      txt.innerHTML = '数据来源：<b>模拟演示</b> · 加速度计仅作辅助';
+    } else if(st.source === 'gps-err'){
+      el.className = 'source-line is-err';
+      txt.innerHTML = '定位不可用 · 可点「模拟演示」，或在设置里手动选择移动方式';
+    } else {
+      el.className = 'source-line';
+      txt.innerHTML = '数据来源：正在请求 <b>GPS 定位</b> 权限……';
+    }
+  }
+  /* 速度平滑：GPS 速度抖动会让数字乱跳，这里做两级处理 */
+  var speedSmooth = 0;
+  var SPEED_DEADZONE = 0.8;    // km/h，小于这个变化不更新显示
+  var SPEED_ALPHA = 0.28;      // 低通系数
+
+  function pushSample(kmh){
+    kmh = Math.max(0, kmh || 0);
+    // 低通
+    speedSmooth = speedSmooth * (1 - SPEED_ALPHA) + kmh * SPEED_ALPHA;
+    // 死区：变化很小就保持原值，避免数字末位乱跳
+    if(Math.abs(speedSmooth - st.speed) < SPEED_DEADZONE && speedSmooth > 1 && st.speed > 1){
+      // 保持
+    } else {
+      st.speed = speedSmooth;
+    }
+    if(kmh > st.max) st.max = kmh;
+    if(kmh > 0.5){ st.sum += kmh; st.samples++; }
+    renderSpeed();
+  }
+
+  /* ================= GPS 断开时的传感器续航 ================= */
+  var INERTIAL_MAX_MS = 30000;   // 超过 30 秒判定失效
+  var inertialTimer = null;
+
+  function startInertial(fromKmh){
+    st.baseSpeed = fromKmh;         // 锚点速度（m/s）
+    st.lostGpsAt = Date.now();
+    st.source = 'inertial';
+    st.inertialLast = Date.now();
+    if(inertialTimer) clearInterval(inertialTimer);
+    // 每 100ms 用加速度积分一次
+    inertialTimer = setInterval(function(){
+      var now = Date.now();
+      var dt = (now - st.inertialLast) / 1000;
+      st.inertialLast = now;
+      if(dt <= 0 || dt > 1) return;
+
+      // 加速度：用 "including gravity 的模长 - 1g" 近似纵向加速度
+      var g = st.accelSmooth;
+      var dev = g - 1;
+      // 只认明显偏离 1g 的（避免噪声积分漂移），死区 0.06g
+      var acc = 0;
+      if(Math.abs(dev) > 0.06){
+        acc = dev * 9.80665 * 0.55;   // 手机方向不固定，打个折
+      }
+      st.baseSpeed = Math.max(0, st.baseSpeed + acc * dt);
+
+      var age = now - st.lostGpsAt;
+      if(age > INERTIAL_MAX_MS){
+        // 失效：停止推算，速度冻结到最后值并标灰
+        clearInterval(inertialTimer); inertialTimer = null;
+        st.source = 'inertial';
+        updateSource();
+        renderSpeed();
+        return;
+      }
+      var kmh = st.baseSpeed * 3.6;
+      st.speed = kmh;
+      if(kmh > st.max) st.max = kmh;
+      renderSpeed();
+    }, 100);
+  }
+  function stopInertial(){
+    if(inertialTimer){ clearInterval(inertialTimer); inertialTimer = null; }
+    if(st.source === 'inertial') st.source = 'none';
+  }
+
+  /* ================= 传感器：加速度计 ================= */
+  var motionBound = false;
+  function bindMotion(){
+    if(motionBound) return;
+    motionBound = true;
+    function onMotion(e){
+      var a = e.accelerationIncludingGravity;
+      if(!a || a.x == null) return;
+      var mag = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+      st.accel = mag / 9.80665;
+      // 低通平滑
+      st.accelSmooth = st.accelSmooth*0.82 + st.accel*0.18;
+      var g = st.accelSmooth;
+      $('accVal').textContent = g.toFixed(2);
+      // 条形：0g 在左，2g 在右，中点 1g（静止时重力）
+      var pct = Math.max(0, Math.min(100, (g/2)*100));
+      $('accBar').style.left = pct + '%';
+      // 偏离 1g 越多越活跃
+      var dev = Math.abs(g - 1);
+      var bar = $('accBar');
+      if(dev > 0.35){ bar.style.background = 'var(--c-max)'; }
+      else if(dev > 0.15){ bar.style.background = 'var(--c-fast)'; }
+      else { bar.style.background = 'var(--c-mid)'; }
+      // 运动判定的辅助：GPS 说静止但加速度一直有大波动
+      var active = dev > 0.18;
+      if(st.speed < 0.8){
+        $('motionVal').textContent = active ? '有晃动' : '静止';
+      } else {
+        $('motionVal').textContent = active ? '运动中' : '匀速';
+      }
+    }
+    window.addEventListener('devicemotion', onMotion, true);
+  }
+
+  /* ================= 轨迹图 ================= */
+  var cv = $('trackCanvas'), ctx = cv.getContext('2d');
+  var trackW = 0, trackH = 0, dpr = window.devicePixelRatio || 1;
+  var lastScale = { metersPerPx: 0, pxPerMeter: 0 };
+
+  /* 动态比例尺：满刻度取 80px，自动挑一个"好看"的数值 */
+  var NICE = [1,2,5,10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,
+              100000,200000,500000,1000000,2000000,5000000,10000000];
+  function fmtMeters(m){
+    if(m >= 1000000) return (m/1000000) + ' 千 km';
+    if(m >= 1000)    return (m/1000) + ' km';
+    return m + ' m';
+  }
+  function fmtDist(m){
+    if(m >= 1000000) return (m/1000000).toFixed(m>=10000000?0:1) + ' 千 km';
+    if(m >= 1000)    return (m/1000).toFixed(m>=10000?0:1) + ' km';
+    if(m >= 1)       return m.toFixed(m>=100?0:1) + ' m';
+    return (m*100).toFixed(0) + ' cm';
+  }
+  function updateScale(pxPerMeter){
+    if(!pxPerMeter || !isFinite(pxPerMeter) || pxPerMeter <= 0) return;
+    lastScale.pxPerMeter = pxPerMeter;
+    var targetM = 80 / pxPerMeter;     // 想画 80px，实际代表多少米
+    var pick = NICE[NICE.length-1];
+    for(var i=0;i<NICE.length;i++){
+      if(NICE[i] >= targetM){ pick = NICE[i]; break; }
+    }
+    var px = pick * pxPerMeter;
+    if(px > 130){ px = 130; pick = px/pxPerMeter; }
+    if(px < 26){ px = Math.max(20, px); }
+    $('scaleLn').style.width = px.toFixed(1)+'px';
+    $('scaleLab').textContent = fmtMeters(pick);
+    lastScale.metersPerPx = 1/pxPerMeter;
+  }
+
+  function sizeCanvas(){
+    var wrap = $('trackWrap');
+    var r = wrap.getBoundingClientRect();
+    if(r.width < 10 || r.height < 10) return;
+    trackW = r.width; trackH = r.height;
+    cv.width = Math.round(trackW*dpr);
+    cv.height = Math.round(trackH*dpr);
+    cv.style.width = trackW+'px';
+    cv.style.height = trackH+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    drawTrack();
+  }
+
+  function speedColor(v, maxV){
+    // 0 → 青, 中 → 绿, 高 → 橙, 顶 → 红
+    var t = Math.max(0, Math.min(1, maxV > 0 ? v/maxV : 0));
+    var stops = [
+      {t:0,   c:[61,217,192]},
+      {t:0.35,c:[200,255,46]},
+      {t:0.7, c:[255,176,32]},
+      {t:1,   c:[255,59,48]}
+    ];
+    for(var i=0;i<stops.length-1;i++){
+      if(t >= stops[i].t && t <= stops[i+1].t){
+        var k = (t-stops[i].t)/(stops[i+1].t-stops[i].t);
+        var a = stops[i].c, b = stops[i+1].c;
+        var dark = effectiveTheme()==='dark';
+        var mix = [0,1,2].map(function(j){ return Math.round(a[j]+(b[j]-a[j])*k); });
+        if(!dark) mix = mix.map(function(x){ return Math.round(x*0.78); });
+        return 'rgb('+mix.join(',')+')';
+      }
+    }
+    return 'rgb(200,255,46)';
+  }
+
+  function drawTrack(){
+    if(!trackW) return;
+    ctx.clearRect(0,0,trackW,trackH);
+    var pts = st.points;
+    var empty = $('trackEmpty');
+    $('trackBadge').textContent = pts.length + ' 个点';
+
+    if(pts.length < 2){
+      empty.style.display = 'flex';
+      $('trackReset').classList.remove('is-show');
+      return;
+    }
+    empty.style.display = 'none';
+
+    // ===== 安全区：轨迹绝不能画进这些区 =====
+    // 底部：图例 + 比例尺占约 40px；顶部：点数徽标占约 26px
+    var SAFE_L = 18;
+    var SAFE_R = 18;
+    var SAFE_T = 34;
+    var SAFE_B = 46;
+
+    // 计算数据边界
+    var minX=1e9, maxX=-1e9, minY=1e9, maxY=-1e9;
+    pts.forEach(function(p){
+      if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x;
+      if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y;
+    });
+    var availW = Math.max(20, trackW - SAFE_L - SAFE_R);
+    var availH = Math.max(20, trackH - SAFE_T - SAFE_B);
+
+    // ===== 最小可视范围：避免只有几个点/几米位移时被无限放大 =====
+    // 至少展示 40 米（或 GPS 精度的 2 倍），否则一条小抖动会被画满全屏
+    var minSpanM = Math.max(40, (st.gpsAcc || 10) * 2);
+    var spanXr = maxX - minX, spanYr = maxY - minY;
+    var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    if(spanXr < minSpanM){ minX = cx - minSpanM/2; maxX = cx + minSpanM/2; }
+    if(spanYr < minSpanM){ minY = cy - minSpanM/2; maxY = cy + minSpanM/2; }
+
+    var spanX = Math.max(1e-6, maxX-minX), spanY = Math.max(1e-6, maxY-minY);
+
+    // 自动缩放（fit）：把轨迹塞进安全区
+    var fitScale = Math.min(availW/spanX, availH/spanY);
+    var viewScale = fitScale * view.zoom;
+
+    // 数据坐标 → 屏幕坐标
+    function toScreen(p){
+      var sx = SAFE_L + (p.x - minX)*viewScale + view.panX;
+      var sy = (trackH - SAFE_B) - (p.y - minY)*viewScale + view.panY;
+      return { x:sx, y:sy };
+    }
+
+    // 比例尺跟着实际缩放走
+    updateScale(viewScale);
+
+    // 底纹网格（裁到安全区内）
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(SAFE_L, SAFE_T, availW, availH);
+    ctx.clip();
+
+    ctx.strokeStyle = effectiveTheme()==='dark' ? 'rgba(255,255,255,.045)' : 'rgba(0,0,0,.05)';
+    ctx.lineWidth = 1;
+    for(var gx=SAFE_L; gx<SAFE_L+availW; gx+=28){
+      ctx.beginPath(); ctx.moveTo(gx+0.5,SAFE_T); ctx.lineTo(gx+0.5,SAFE_T+availH); ctx.stroke();
+    }
+    for(var gy=SAFE_T; gy<SAFE_T+availH; gy+=24){
+      ctx.beginPath(); ctx.moveTo(SAFE_L,gy+0.5); ctx.lineTo(SAFE_L+availW,gy+0.5); ctx.stroke();
+    }
+
+    // 轨迹线（按速度着色）
+    var maxV = Math.max(1, st.max);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for(var i=1;i<pts.length;i++){
+      var a = toScreen(pts[i-1]), b = toScreen(pts[i]);
+      ctx.beginPath();
+      ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+      ctx.strokeStyle = speedColor(pts[i].v, maxV);
+      ctx.lineWidth = Math.max(2, 3.2 * Math.min(1.6, Math.max(0.7, view.zoom)));
+      ctx.stroke();
+    }
+
+    // 起点
+    var s0 = toScreen(pts[0]);
+    ctx.beginPath(); ctx.arc(s0.x,s0.y,4,0,Math.PI*2);
+    ctx.fillStyle = effectiveTheme()==='dark' ? '#1A1C20' : '#FFFFFF';
+    ctx.fill();
+    ctx.strokeStyle = effectiveTheme()==='dark' ? '#5A5F68' : '#9AA0A9';
+    ctx.lineWidth = 2; ctx.stroke();
+
+    // 当前位置光点（脉冲）
+    var last = toScreen(pts[pts.length-1]);
+    var pulse = (Date.now()%1400)/1400;
+    ctx.beginPath(); ctx.arc(last.x,last.y,5+pulse*10,0,Math.PI*2);
+    ctx.fillStyle = 'rgba(255,90,31,'+(0.28*(1-pulse)).toFixed(3)+')';
+    ctx.fill();
+    ctx.beginPath(); ctx.arc(last.x,last.y,5,0,Math.PI*2);
+    ctx.fillStyle = '#FF5A1F'; ctx.fill();
+    ctx.strokeStyle = effectiveTheme()==='dark' ? '#F1F2F4' : '#FFFFFF';
+    ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.restore();
+
+    // 有缩放/平移时显示复位按钮
+    var moved = view.zoom > 1.02 || Math.abs(view.panX) > 3 || Math.abs(view.panY) > 3;
+    $('trackReset').classList.toggle('is-show', moved);
+  }
+
+  /* ================= 轨迹图手势：缩放 + 平移 ================= */
+  var view = { zoom:1, panX:0, panY:0 };
+  var pointers = {};
+  var gesture = { active:false, mode:'', startDist:0, startZoom:1, startX:0, startY:0, startPanX:0, startPanY:0, midX:0, midY:0 };
+
+  function ptDist(){
+    var k = Object.keys(pointers);
+    if(k.length < 2) return 0;
+    var a = pointers[k[0]], b = pointers[k[1]];
+    return Math.hypot(a.x-b.x, a.y-b.y);
+  }
+  function ptMid(){
+    var k = Object.keys(pointers);
+    if(k.length < 2) return {x:0,y:0};
+    var a = pointers[k[0]], b = pointers[k[1]];
+    return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
+  }
+
+  function bindTrackGestures(){
+    var wrap = $('trackWrap');
+
+    wrap.addEventListener('pointerdown', function(e){
+      pointers[e.pointerId] = { x:e.clientX, y:e.clientY };
+      try { wrap.setPointerCapture(e.pointerId); } catch(_) {}
+      var n = Object.keys(pointers).length;
+      if(n === 1){
+        gesture.mode = 'pan';
+        gesture.startX = e.clientX; gesture.startY = e.clientY;
+        gesture.startPanX = view.panX; gesture.startPanY = view.panY;
+        wrap.classList.add('is-drag');
+      } else if(n === 2){
+        gesture.mode = 'pinch';
+        gesture.startDist = ptDist();
+        gesture.startZoom = view.zoom;
+        var m = ptMid();
+        gesture.midX = m.x; gesture.midY = m.y;
+        gesture.startX = e.clientX; gesture.startY = e.clientY;
+        gesture.startPanX = view.panX; gesture.startPanY = view.panY;
+      }
+      gesture.active = true;
+    });
+
+    wrap.addEventListener('pointermove', function(e){
+      if(!gesture.active || !pointers[e.pointerId]) return;
+      pointers[e.pointerId] = { x:e.clientX, y:e.clientY };
+      var n = Object.keys(pointers).length;
+
+      if(n >= 2){
+        var d = ptDist();
+        if(gesture.startDist > 0){
+          view.zoom = Math.max(0.5, Math.min(12, gesture.startZoom * (d/gesture.startDist)));
+        }
+      } else if(n === 1 && gesture.mode === 'pan'){
+        view.panX = gesture.startPanX + (e.clientX - gesture.startX);
+        view.panY = gesture.startPanY + (e.clientY - gesture.startY);
+      }
+      drawTrack();
+    });
+
+    function up(e){
+      delete pointers[e.pointerId];
+      var n = Object.keys(pointers).length;
+      if(n === 0){
+        gesture.active = false;
+        wrap.classList.remove('is-drag');
+      } else if(n === 1){
+        // 从双指回到单指：重设平移起点
+        var k = Object.keys(pointers)[0];
+        gesture.mode = 'pan';
+        gesture.startX = pointers[k].x; gesture.startY = pointers[k].y;
+        gesture.startPanX = view.panX; gesture.startPanY = view.panY;
+      }
+    }
+    wrap.addEventListener('pointerup', up);
+    wrap.addEventListener('pointercancel', up);
+    wrap.addEventListener('pointerleave', function(e){ if(!pointers[e.pointerId]) return; });
+
+    // 鼠标滚轮缩放
+    wrap.addEventListener('wheel', function(e){
+      e.preventDefault();
+      var step = e.deltaY > 0 ? 0.88 : 1.14;
+      view.zoom = Math.max(0.5, Math.min(12, view.zoom * step));
+      drawTrack();
+    }, { passive:false });
+
+    // 双击复位
+    wrap.addEventListener('dblclick', function(e){
+      e.preventDefault();
+      view.zoom = 1; view.panX = 0; view.panY = 0;
+      drawTrack();
+    });
+
+    $('trackReset').addEventListener('click', function(e){
+      e.stopPropagation();
+      view.zoom = 1; view.panX = 0; view.panY = 0;
+      drawTrack();
+    });
+  }
+  bindTrackGestures();
+
+  // 每 400ms 重绘一次（光点脉冲）
+  setInterval(function(){ if(st.points.length>1) drawTrack(); }, 400);
+  window.addEventListener('resize', sizeCanvas);
+
+  /* ================= 记录轨迹点 ================= */
+  function addPoint(kmh){
+    var p = st.points;
+    var last = p[p.length-1];
+    var now = Date.now();
+    if(last && now - last.t < 700) { last.v = kmh; last.t = now; return; }
+    var pos;
+    if(st.source === 'sim'){
+      // 模拟：走一条弯曲路线
+      st.simPos.dir += (Math.random()-0.5)*0.5;
+      var step = Math.max(0.4, kmh*0.004);
+      st.simPos.x += Math.cos(st.simPos.dir)*step;
+      st.simPos.y += Math.sin(st.simPos.dir)*step;
+      pos = { x: st.simPos.x, y: st.simPos.y };
+    } else if(st.source === 'gps' && st.lastPos){
+      // 用真实经纬度做平面近似
+      if(!st.gpsBase){ st.gpsBase = { lat: st.lastPos.lat, lon: st.lastPos.lon }; }
+      var nx = (st.lastPos.lon - st.gpsBase.lon) * 111320 * Math.cos(st.gpsBase.lat*Math.PI/180);
+      var ny = (st.lastPos.lat - st.gpsBase.lat) * 110540;
+
+      // ===== 精度过滤：只挡明显乱跳的点，不把正常移动也挡掉 =====
+      var acc = st.gpsAcc || 10;
+      // 阈值放宽：精度的一半，但最多 6 米；否则室内会一个点都记不下来
+      var minMove = Math.min(6, Math.max(2, acc * 0.5));
+      if(last){
+        var moved = Math.hypot(nx - last.x, ny - last.y);
+        if(moved < minMove){
+          // 位移在噪声范围内：不新增点，只更新速度和时间
+          last.v = kmh; last.t = now;
+          return;
+        }
+      }
+      pos = { x: nx, y: ny };
+    } else {
+      pos = { x: p.length*1.2, y: Math.sin(p.length*0.35)*18 };
+    }
+    p.push({ t:now, v:kmh, x:pos.x, y:pos.y });
+    if(p.length > 900) p.shift();
+    drawTrack();
+  }
+
+  /* ================= GPS ================= */
+  function haversine(a,b){
+    var R=6371000, r=Math.PI/180;
+    var dLat=(b.lat-a.lat)*r, dLon=(b.lon-a.lon)*r;
+    var s=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return 2*R*Math.asin(Math.min(1,Math.sqrt(s)));
+  }
+  function fmtCoord(lat,lon){
+    return Math.abs(lat).toFixed(4)+'°'+(lat>=0?'N':'S')+'  '+Math.abs(lon).toFixed(4)+'°'+(lon>=0?'E':'W');
+  }
+  function onPos(pos){
+    var c = pos.coords, now = pos.timestamp || Date.now();
+    if(c.heading != null && !isNaN(c.heading) && c.heading >= 0) setHeading(c.heading);
+    $('coordVal').textContent = fmtCoord(c.latitude, c.longitude);
+    st.gpsAcc = Math.round(c.accuracy||0);
+    // GPS 信号条
+    updateGpsSignal(c.accuracy);
+    // 海拔：0 或非法值视为无数据（气压计可用时由原生层覆盖）
+    var alt = (c.altitude != null && isFinite(c.altitude) && c.altitude !== 0) ? c.altitude : null;
+    if(alt != null){
+      if(window.__baroAlt == null){
+        $('altVal').innerHTML = alt.toFixed(1)+'<small>米</small>';
+      }
+    } else if(window.__baroAlt == null){
+      $('altVal').innerHTML = '--<small>米</small>';
+    }
+
+    if(!st.running){ st.lastPos = {lat:c.latitude, lon:c.longitude, t:now}; return; }
+
+    var kmh = 0, ok = false;
+    if(c.speed != null && !isNaN(c.speed) && c.speed >= 0){ kmh = c.speed*3.6; ok = true; }
+    else if(st.lastPos){
+      var dt = (now-st.lastPos.t)/1000;
+      if(dt > 0.5){ kmh = haversine(st.lastPos,{lat:c.latitude,lon:c.longitude})/dt*3.6; ok = true; }
+    }
+    st.lastPos = { lat:c.latitude, lon:c.longitude, t:now };
+    st.lastGpsAt = now;
+    if(ok){
+      // GPS 回来了：停掉传感器推算
+      if(st.source === 'inertial'){ stopInertial(); }
+      st.source = 'gps';
+      pushSample(st.speed*0.55 + kmh*0.45);
+      addPoint(st.speed);
+    }
+  }
+  // 定时检查 GPS 是否超时
+  setInterval(function(){
+    if(!st.running || st.source !== 'gps' || st.sim) return;
+    if(st.lastGpsAt && Date.now() - st.lastGpsAt > 3500){
+      startInertial(st.speed);
+    }
+  }, 1000);
+  /* ================= GPS 信号强度 ================= */
+  var gpsPctNow = 0;
+  var gpsPctSmooth = 0;
+  var gpsLastAt = 0;
+
+  // 精度(米) → 百分比。5 米满分，越大越差
+  function accuracyToPct(acc){
+    if(acc == null || !isFinite(acc) || acc <= 0) return null;
+    if(acc <= 5)   return 100;
+    if(acc >= 120) return 5;
+    // 5→100%，120→5%，用幂函数让 10 米左右落在 65%
+    var t = (acc - 5) / (120 - 5);
+    return Math.round(100 * Math.pow(1 - t, 1.35) * 0.95 + 5);
+  }
+
+  function renderGpsMeter(pct, known){
+    var boxes = document.querySelectorAll('.gps-float');
+    if(!boxes.length) return;
+    Array.prototype.forEach.call(boxes, function(box){
+      var bar = box.querySelector('.gps-bar');
+      var label = box.querySelector('.gps-pct');
+      if(!bar || !label) return;
+      var fill = bar.querySelector('i');
+      box.classList.remove('is-weak','is-none');
+
+      if(!known){
+        fill.style.width = '0%';
+        fill.style.background = 'var(--line)';
+        label.textContent = '--';
+        box.classList.add('is-none');
+        return;
+      }
+      var p = Math.max(0, Math.min(100, Math.round(pct)));
+      fill.style.width = p + '%';
+      var color;
+      if(p >= 70) color = 'var(--c-mid)';
+      else if(p >= 40) color = 'var(--c-slow)';
+      else if(p >= 15) color = 'var(--c-fast)';
+      else color = 'var(--c-max)';
+      fill.style.background = color;
+      label.textContent = p + '%';
+      if(p < 40) box.classList.add('is-weak');
+    });
+  }
+
+  function updateGpsSignal(acc){
+    gpsLastAt = Date.now();
+    var pct = accuracyToPct(acc);
+    if(pct == null) return;
+    if(gpsPctSmooth === 0) gpsPctSmooth = pct;
+    else gpsPctSmooth = gpsPctSmooth * 0.7 + pct * 0.3;   // 平滑，避免数字跳
+    gpsPctNow = gpsPctSmooth;
+    renderGpsMeter(gpsPctSmooth, true);
+  }
+
+  // 超过 8 秒没定位更新 → 信号归零
+  setInterval(function(){
+    if(gpsLastAt && Date.now() - gpsLastAt > 8000){
+      gpsPctSmooth = 0;
+      renderGpsMeter(0, false);
+    }
+  }, 2000);
+
+  function onErr(e){
+    st.source = 'gps-err';
+    updateSource();
+    $('coordVal').textContent = '无法获取';
+  }
+
+  /* 原生定位状态：告诉用户到底哪里有问题 */
+  window.__native_locationState = function(d){
+    if(!d) return;
+    if(!d.started){
+      st.source = 'gps-err';
+      var txt = $('sourceText');
+      if(txt){
+        txt.innerHTML = !d.fine
+          ? '定位权限只有「大致位置」· 去 设置→应用→指南针测速→位置 改成「精确位置」'
+          : '定位未启动 · 请检查手机是否开启了定位服务';
+      }
+      var cv = $('coordVal'); if(cv) cv.textContent = '定位未启动';
+    }
+  };
+  var peekId = null;
+  function startPeek(){
+    if(peekId != null || !navigator.geolocation) return;
+    peekId = navigator.geolocation.watchPosition(onPos, onErr, {enableHighAccuracy:true, maximumAge:2000, timeout:15000});
+  }
+  function startWatch(){
+    if(st.watchId != null) return;
+    if(!navigator.geolocation){ st.source='gps-err'; updateSource(); return; }
+    st.source = 'none'; updateSource();
+    st.watchId = navigator.geolocation.watchPosition(onPos, onErr, {enableHighAccuracy:true, maximumAge:1000, timeout:15000});
+  }
+  function stopWatch(){
+    if(st.watchId != null && navigator.geolocation){ navigator.geolocation.clearWatch(st.watchId); st.watchId = null; }
+  }
+
+  /* ================= 设备朝向（指南针，独立于测速） ================= */
+  var orientBound = false;
+  var orientLive = false;          // 是否收到过真实方向数据
+  var orientLastAt = 0;
+
+  function onOrient(e){
+    var h = null;
+    if(e.webkitCompassHeading != null && !isNaN(e.webkitCompassHeading)) h = e.webkitCompassHeading;
+    else if(e.alpha != null) h = (360 - e.alpha)%360;
+    if(h == null || isNaN(h)) return;
+    orientLive = true;
+    orientLastAt = Date.now();
+    setHeading(h);
+    updateDirHint();
+  }
+
+  // 没有真实数据时，首页显示友好提示
+  function updateDirHint(){
+    var sub = $('dirSub');
+    if(!sub) return;
+    if(orientLive){
+      sub.textContent = '把手机放平，指向你想去的方向';
+    } else {
+      sub.textContent = '把手机放平，指向你想去的方向';
+    }
+  }
+
+  function bindOrientation(){
+    if(orientBound) return;
+    orientBound = true;
+    // iOS 13+ 需要用户手势授权
+    if('DeviceOrientationEvent' in window && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      DeviceOrientationEvent.requestPermission().then(function(r){
+        if(r === 'granted'){
+          window.addEventListener('deviceorientationabsolute', onOrient, true);
+          window.addEventListener('deviceorientation', onOrient, true);
+        } else {
+          // 用户拒绝：保持可点，点一下再申请
+          enableOrientOnTap();
+        }
+      }).catch(function(){ enableOrientOnTap(); });
+    } else {
+      window.addEventListener('deviceorientationabsolute', onOrient, true);
+      window.addEventListener('deviceorientation', onOrient, true);
+    }
+  }
+
+  function enableOrientOnTap(){
+    var home = $('home');
+    var once = function(){
+      home.removeEventListener('pointerdown', once);
+      if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+        DeviceOrientationEvent.requestPermission().then(function(r){
+          if(r === 'granted'){
+            window.addEventListener('deviceorientationabsolute', onOrient, true);
+            window.addEventListener('deviceorientation', onOrient, true);
+          }
+        }).catch(function(){});
+      }
+    };
+    home.addEventListener('pointerdown', once);
+  }
+
+  /* ================= 模拟 ================= */
+  var SIM_RAMP = [0,1.4,1.4,1.4,4,5.5,5.5,12,16,18,18,26,30,32,32,55,75,82,82,82,140,180,205,205,260,420,550,700];
+  function startSim(){
+    if(st.sim) return;
+    stopWatch();
+    st.sim = true; st.simIdx = 0; st.source = 'sim';
+    var dir = heading, dirTarget = 38;
+    st.simTimer = setInterval(function(){
+      var target = SIM_RAMP[st.simIdx % SIM_RAMP.length];
+      st.simIdx++;
+      var v = st.speed + (target-st.speed)*0.55;
+      pushSample(v);
+      addPoint(v);
+      dir += (dirTarget-dir)*0.1 + (Math.random()-0.5)*0.8;
+      if(Math.abs(dir-dirTarget)<2) dirTarget = (dirTarget+40+Math.random()*100)%360;
+      setHeading(dir);
+      var lat = 36 + Math.sin(Date.now()/40000)*0.002;
+      var lon = 113 + Math.cos(Date.now()/40000)*0.002;
+      $('coordVal').textContent = fmtCoord(lat,lon);
+      if($('altVal').textContent.indexOf('--')>=0) $('altVal').innerHTML = '972.9<small>米</small>';
+    }, 900);
+  }
+  function stopSim(){ st.sim = false; if(st.simTimer){ clearInterval(st.simTimer); st.simTimer = null; } }
+
+  /* ================= 切屏 ================= */
+  var home = $('home'), speed = $('speed');
+  function resetStats(){
+    st.speed=0; st.max=0; st.sum=0; st.samples=0;
+    st.startAt = Date.now(); st.lastPos=null;
+    st.points=[]; st.gpsBase=null; st.simPos={x:0,y:0,dir:0};
+    st.lastGpsAt=0; st.lostGpsAt=0; st.baseSpeed=0;
+    stopInertial();
+    view.zoom=1; view.panX=0; view.panY=0;
+    if(typeof pointers !== 'undefined'){ pointers = {}; gesture.active = false; }
+    renderSpeed(); drawTrack();
+  }
+  function goSpeed(){
+    goScreen('speed');
+    setTimeout(sizeCanvas, 60);
+    bindMotion();
+    bindOrientation();
+    // 进来只准备，不自动开始记录；等用户点「开始」
+    syncStartBtn();
+  }
+  function goHome(){
+    goScreen('home');
+  }
+
+  /* ================= 开始 / 停止 记录 ================= */
+  function syncStartBtn(){
+    var b = $('btnStartRec'), t = $('startRecTxt');
+    if(!b) return;
+    if(st.running){
+      b.classList.add('is-rec');
+      t.textContent = '记录中';
+      b.disabled = true;
+    } else {
+      b.classList.remove('is-rec');
+      t.textContent = '开始';
+      b.disabled = false;
+    }
+  }
+  function startRecording(){
+    if(st.running) return;
+    st.running = true;
+    resetStats();
+    st.startAt = Date.now();
+    startWatch();
+    bindOrientation();
+    bindMotion();
+    syncStartBtn();
+  }
+  function stopRecording(){
+    // 先存历史，再清状态
+    var saved = saveCurrentRecord();
+    stopSim(); stopWatch(); stopInertial();
+    st.running = false;
+    st.source = 'none';
+    pushSample(0);
+    updateSource();
+    syncStartBtn();
+    return saved;
+  }
+
+  /* ================= 历史记录存储 ================= */
+  var HIST_KEY = 'compass.history.v1';
+  var HIST_MAX = 60;              // 最多留 60 条
+  var records = [];
+
+  function loadRecords(){
+    try{
+      var raw = localStorage.getItem(HIST_KEY);
+      records = raw ? JSON.parse(raw) : [];
+      if(!Array.isArray(records)) records = [];
+    }catch(_){ records = []; }
+    return records;
+  }
+  function saveRecords(){
+    try{
+      // 超出上限删最旧的
+      if(records.length > HIST_MAX) records = records.slice(0, HIST_MAX);
+      localStorage.setItem(HIST_KEY, JSON.stringify(records));
+    }catch(e){
+      // 容量满：淘汰最旧的一半再试
+      try{
+        records = records.slice(0, Math.max(1, Math.floor(records.length/2)));
+        localStorage.setItem(HIST_KEY, JSON.stringify(records));
+      }catch(_){}
+    }
+  }
+  function recDistance(pts){
+    var d = 0;
+    for(var i=1;i<pts.length;i++) d += Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y);
+    return d;
+  }
+  // 把当前记录存进历史
+  function saveCurrentRecord(){
+    var pts = st.points;
+    if(pts.length < 2) return null;
+    var dur = st.startAt ? (Date.now() - st.startAt) : 0;
+    if(dur < 3000) return null;          // 太短不存
+    var avg = st.samples ? st.sum/st.samples : 0;
+    var rec = {
+      id: 'r' + Date.now(),
+      t: Date.now(),
+      dur: dur,
+      avg: avg,
+      max: st.max,
+      dist: recDistance(pts),
+      sim: st.source === 'sim',
+      pts: pts.map(function(p){ return [p.x, p.y, p.v]; })   // 精简存储
+    };
+    records.unshift(rec);
+    saveRecords();
+    renderHistory();
+    return rec;
+  }
+  function delRecord(id){
+    records = records.filter(function(r){ return r.id !== id; });
+    saveRecords();
+    renderHistory();
+  }
+
+  /* ================= 界面三：历史列表 ================= */
+  function modeByDist(v){
+    var m = MODES[0];
+    for(var i=0;i<MODES.length;i++) if(v >= MODES[i].min) m = MODES[i];
+    return m.name;
+  }
+  function fmtDur(ms){
+    var s = Math.floor(ms/1000), m = Math.floor(s/60), h = Math.floor(m/60);
+    if(h>0) return h+'小时'+(m%60)+'分';
+    if(m>0) return m+'分'+(s%60)+'秒';
+    return s+'秒';
+  }
+  function fmtDate(ts){
+    var d = new Date(ts);
+    var now = new Date();
+    var sameDay = d.toDateString() === now.toDateString();
+    var hm = pad2(d.getHours())+':'+pad2(d.getMinutes());
+    if(sameDay) return '今天 '+hm;
+    var y = new Date(now.getTime()-86400000);
+    if(d.toDateString() === y.toDateString()) return '昨天 '+hm;
+    return (d.getMonth()+1)+'月'+d.getDate()+'日 '+hm;
+  }
+  function fmtDistM(m){
+    if(m >= 1000) return (m/1000).toFixed(m>=10000?0:1)+' km';
+    return Math.round(m)+' m';
+  }
+
+  // 缩略图画布
+  function drawThumb(cv, pts){
+    var dpr2 = window.devicePixelRatio || 1;
+    var w = 74, h = 56;
+    cv.width = w*dpr2; cv.height = h*dpr2;
+    var c = cv.getContext('2d');
+    c.setTransform(dpr2,0,0,dpr2,0,0);
+    if(!pts || pts.length < 2) return;
+    var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+    pts.forEach(function(p){
+      if(p[0]<minX)minX=p[0]; if(p[0]>maxX)maxX=p[0];
+      if(p[1]<minY)minY=p[1]; if(p[1]>maxY)maxY=p[1];
+    });
+    var pad = 6;
+    var sw = Math.max(1e-6, maxX-minX), sh = Math.max(1e-6, maxY-minY);
+    var k = Math.min((w-pad*2)/sw, (h-pad*2)/sh);
+    var ox = pad + ((w-pad*2) - sw*k)/2;
+    var oy = pad + ((h-pad*2) - sh*k)/2;
+    var maxV = 1;
+    pts.forEach(function(p){ if(p[2] > maxV) maxV = p[2]; });
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = 2;
+    for(var i=1;i<pts.length;i++){
+      var a = pts[i-1], b = pts[i];
+      c.beginPath();
+      c.moveTo(ox+(a[0]-minX)*k, h-oy-(a[1]-minY)*k);
+      c.lineTo(ox+(b[0]-minX)*k, h-oy-(b[1]-minY)*k);
+      c.strokeStyle = speedColor(b[2], maxV);
+      c.stroke();
+    }
+  }
+
+  function renderHistory(){
+    var list = $('histList');
+    if(!list) return;
+    list.innerHTML = '';
+    $('histCount').textContent = '共 ' + records.length + ' 条运动';
+
+    if(records.length === 0){
+      list.innerHTML = '<div class="hist-empty">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' +
+        '<div>还没有运动记录<br>回到首页点「开始监测」，结束后会自动保存到这里</div>' +
+      '</div>';
+      return;
+    }
+
+    records.forEach(function(rec){
+      var el = document.createElement('div');
+      el.className = 'rec';
+      el.setAttribute('data-id', rec.id);
+
+      var del = document.createElement('button');
+      del.className = 'rec-del';
+      del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>删除';
+
+      var body = document.createElement('div');
+      body.className = 'rec-body';
+      body.innerHTML =
+        '<div class="rec-thumb"><canvas></canvas></div>' +
+        '<div class="rec-info">' +
+          '<div class="rec-top">' +
+            '<span class="rec-when">' + fmtDate(rec.t) + '</span>' +
+            '<span class="rec-type">' + (rec.sim ? '模拟' : modeByDist(rec.avg)) + '</span>' +
+          '</div>' +
+          '<div class="rec-metrics">' +
+            '<span class="rec-metric"><b>' + fmtSpeed(rec.avg) + '</b><span>' + curUnit().code + '</span></span>' +
+            '<span class="rec-metric"><b>' + fmtDistM(rec.dist) + '</b></span>' +
+            '<span class="rec-metric"><b>' + fmtDur(rec.dur) + '</b></span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="rec-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></div>';
+
+      el.appendChild(del);
+      el.appendChild(body);
+      list.appendChild(el);
+
+      drawThumb(body.querySelector('canvas'), rec.pts);
+      bindRecSwipe(el, body, del, rec);
+
+      body.addEventListener('click', function(e){
+        if(el.classList.contains('is-open')){
+          el.classList.remove('is-open');
+          return;
+        }
+        openReplay(rec);
+      });
+    });
+  }
+
+  /* 左滑删除交互 */
+  var SWIPE_W = 84;
+  function bindRecSwipe(el, body, delBtn, rec){
+    var startX = 0, startY = 0, dx = 0, dragging = false, decided = false, isOpen = false;
+
+    body.addEventListener('pointerdown', function(e){
+      if(e.target.closest('.rec-del')) return;
+      startX = e.clientX; startY = e.clientY;
+      dx = 0; dragging = false; decided = false;
+      isOpen = el.classList.contains('is-open');
+      body.style.transition = 'none';
+    });
+
+    body.addEventListener('pointermove', function(e){
+      if(startX === 0) return;
+      var ddx = e.clientX - startX;
+      var ddy = e.clientY - startY;
+      if(!decided){
+        if(Math.abs(ddx) < 6 && Math.abs(ddy) < 6) return;
+        decided = true;
+        // 横向比纵向大才当作滑动
+        dragging = Math.abs(ddx) > Math.abs(ddy);
+        if(!dragging){ startX = 0; body.style.transition = ''; return; }
+      }
+      if(!dragging) return;
+      dx = ddx;
+      var base = isOpen ? -SWIPE_W : 0;
+      var move = base + dx;
+      move = Math.max(-SWIPE_W - 20, Math.min(12, move));
+      body.style.transform = 'translateX(' + move + 'px)';
+    });
+
+    function endSwipe(){
+      if(startX === 0) return;
+      startX = 0;
+      body.style.transition = '';
+      body.style.transform = '';
+      if(!dragging) return;
+      var base = isOpen ? -SWIPE_W : 0;
+      var total = base + dx;
+      var open = total < -SWIPE_W/2;
+      el.classList.toggle('is-open', open);
+      if(open){
+        // 关闭其他已打开的
+        Array.prototype.forEach.call(document.querySelectorAll('.rec.is-open'), function(r){
+          if(r !== el) r.classList.remove('is-open');
+        });
+      }
+      dx = 0; dragging = false;
+    }
+    body.addEventListener('pointerup', endSwipe);
+    body.addEventListener('pointercancel', endSwipe);
+    body.addEventListener('pointerleave', function(){ if(dragging) endSwipe(); });
+
+    delBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      askDelete(rec);
+    });
+  }
+
+  /* 删除确认 */
+  var pendingDelete = null;
+  function askDelete(rec){
+    pendingDelete = rec;
+    $('cfDesc').textContent = fmtDate(rec.t) + ' · ' + fmtDistM(rec.dist) + '，删除后找不回来。';
+    $('confirmWrap').classList.add('is-open');
+  }
+  function closeConfirm(){
+    $('confirmWrap').classList.remove('is-open');
+    pendingDelete = null;
+  }
+  $('cfCancel').addEventListener('click', closeConfirm);
+  $('confirmWrap').addEventListener('click', function(e){
+    if(e.target.hasAttribute('data-cfclose')) closeConfirm();
+  });
+  $('cfOk').addEventListener('click', function(){
+    if(pendingDelete){ delRecord(pendingDelete.id); }
+    closeConfirm();
+  });
+
+  /* ================= 回放页 ================= */
+  var rp = { rec:null, idx:0, playing:false, timer:null, pts:[] };
+
+  function openReplay(rec){
+    rp.rec = rec;
+    rp.pts = rec.pts.map(function(p){ return { x:p[0], y:p[1], v:p[2] }; });
+    rp.idx = rp.pts.length;
+    rp.playing = false;
+    $('rpTitle').textContent = fmtDate(rec.t);
+    $('rpAvg').textContent = fmtSpeed(rec.avg);
+    $('rpMax').textContent = fmtSpeed(rec.max);
+    $('rpTime').textContent = fmtTime(rec.dur);
+    $('rpAvgU').textContent = curUnit().code;
+    $('rpMaxU').textContent = curUnit().code;
+    $('rpDist').textContent = (rec.dist/1000).toFixed(rec.dist>=10000?1:2);
+    $('rpDistU').textContent = 'km';
+    $('rpMode').textContent = rec.sim ? '模拟' : modeByDist(rec.avg);
+    // 平均配速（分钟/公里）
+    var pace = (rec.avg > 0.5) ? (60 / (rec.avg/3.6*60)) : 0;
+    $('rpPace').textContent = pace > 0 ? fmtPace(pace) : '--';
+    // 移动时长（速度 > 0.8 的时间占比，简化估算）
+    $('rpMove').textContent = fmtTime(rec.dur);
+    // 卡路里估算：按运动方式给 MET，默认体重 70kg
+    var kmh = rec.avg;
+    var met = 2.5;
+    if(kmh < 7) met = 3.5;
+    else if(kmh < 15) met = 6.5;
+    else if(kmh < 30) met = 9.8;
+    else if(kmh < 100) met = 5.5;
+    else met = 2.0;
+    var kcal = Math.round(met * 70 * (rec.dur/3600000));
+    $('rpKcal').textContent = kcal;
+    $('rpClimb').textContent = Math.round(rec.dist * 0.012);   // 粗略估算
+
+    /* ---- 心率 / 步数：有数据显示，没有就占位 ---- */
+    var hasHr = rec.hr && rec.hr.length > 1;
+    var hasStep = rec.steps != null && rec.steps > 0;
+    var hasCad = rec.cad && rec.cad.length > 1;
+
+    var hrEl = $('mgHr'), stepEl = $('mgStep');
+    if(hasHr){
+      hrEl.classList.remove('is-empty');
+      var hrSum = 0, hrCnt = 0;
+      rec.hr.forEach(function(h){ if(h > 0){ hrSum += h; hrCnt++; } });
+      $('rpHr').textContent = hrCnt ? Math.round(hrSum/hrCnt) : '--';
+    } else {
+      hrEl.classList.add('is-empty');
+      $('rpHr').textContent = '--';
+    }
+    if(hasStep){
+      stepEl.classList.remove('is-empty');
+      $('rpStep').textContent = rec.steps;
+    } else {
+      stepEl.classList.add('is-empty');
+      $('rpStep').textContent = '--';
+    }
+
+    // 底部说明：哪些是导入来的、哪些没有
+    var note = $('noDataNote');
+    var lines = [];
+    if(rec.imported){
+      lines.push('<b>来源：</b>导入的三方文件' + (rec.srcType ? '（' + rec.srcType + '）' : ''));
+    }
+    if(!hasHr && !hasStep && !hasCad){
+      lines.push('心率、步数、步频：当前设备无对应传感器，需连接心率带或在支持的设备上记录。');
+    } else {
+      if(!hasHr) lines.push('心率：无数据');
+      if(!hasStep) lines.push('步数：无数据');
+      if(!hasCad) lines.push('步频：无数据');
+    }
+    if(lines.length){ note.innerHTML = lines.join('<br>'); note.classList.add('is-show'); }
+    else { note.classList.remove('is-show'); }
+    goScreen('replay');
+    setTimeout(function(){
+      $('reportScroll').scrollTop = 0;
+      rpSize(); rpDraw(); rpSetProgress(1);
+      drawSpeedChart(rec);
+      drawAltChart(rec);
+      drawHrChart(rec);
+      drawCadChart(rec);
+      buildSegments(rec);
+    }, 70);
+  }
+
+  /* ---- 心率曲线 ---- */
+  function drawHrChart(rec){
+    var card = $('hrCard');
+    var hr = rec.hr;
+    if(!hr || hr.length < 2){ card.style.display = 'none'; return; }
+    card.style.display = '';
+    var H = 110;
+    var o = chartSetup($('hrChart'), H);
+    var c = o.c, W = o.w;
+    c.clearRect(0,0,W,H);
+    var padL = 34, padR = 8, padT = 10, padB = 20;
+    var plotW = W-padL-padR, plotH = H-padT-padB;
+    var minH = Math.min.apply(null, hr), maxH = Math.max.apply(null, hr);
+    var span = Math.max(10, maxH-minH);
+    minH = Math.max(40, minH-5);
+    var dark = effectiveTheme()==='dark';
+
+    c.strokeStyle = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+    for(var i=0;i<=3;i++){
+      var y = padT + plotH*i/3;
+      c.beginPath(); c.moveTo(padL,y+.5); c.lineTo(W-padR,y+.5); c.stroke();
+      c.fillStyle = dark ? 'rgba(255,255,255,.28)' : 'rgba(0,0,0,.32)';
+      c.font = '9px system-ui'; c.textAlign = 'right';
+      c.fillText(Math.round(maxH-(maxH-minH)*i/3), padL-5, y+3);
+    }
+    c.beginPath();
+    hr.forEach(function(v,i){
+      var x = padL + plotW*i/(hr.length-1);
+      var y = padT + plotH - plotH*((v-minH)/span);
+      if(i===0) c.moveTo(x,y); else c.lineTo(x,y);
+    });
+    c.strokeStyle = '#FF5A1F'; c.lineWidth = 2; c.lineJoin='round'; c.stroke();
+    $('hrSub').textContent = Math.round(minH) + '–' + Math.round(maxH) + ' 次/分';
+  }
+
+  /* ---- 步频曲线 ---- */
+  function drawCadChart(rec){
+    var card = $('cadCard');
+    var cad = rec.cad;
+    if(!cad || cad.length < 2){ card.style.display = 'none'; return; }
+    card.style.display = '';
+    var H = 100;
+    var o = chartSetup($('cadChart'), H);
+    var c = o.c, W = o.w;
+    c.clearRect(0,0,W,H);
+    var padL = 34, padR = 8, padT = 10, padB = 20;
+    var plotW = W-padL-padR, plotH = H-padT-padB;
+    var maxC = Math.max.apply(null, cad);
+    maxC = Math.max(120, maxC);
+    var dark = effectiveTheme()==='dark';
+    c.strokeStyle = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+    for(var i=0;i<=3;i++){
+      var y = padT + plotH*i/3;
+      c.beginPath(); c.moveTo(padL,y+.5); c.lineTo(W-padR,y+.5); c.stroke();
+      c.fillStyle = dark ? 'rgba(255,255,255,.28)' : 'rgba(0,0,0,.32)';
+      c.font = '9px system-ui'; c.textAlign = 'right';
+      c.fillText(Math.round(maxC*(3-i)/3), padL-5, y+3);
+    }
+    c.beginPath();
+    cad.forEach(function(v,i){
+      var x = padL + plotW*i/(cad.length-1);
+      var y = padT + plotH - plotH*(v/maxC);
+      if(i===0) c.moveTo(x,y); else c.lineTo(x,y);
+    });
+    c.strokeStyle = '#C8FF2E'; c.lineWidth = 2; c.lineJoin='round'; c.stroke();
+    $('cadSub').textContent = '最高 ' + Math.round(maxC) + ' 步/分';
+  }
+
+  // 配速：分钟:秒 / 公里
+  function fmtPace(minPerKm){
+    if(!isFinite(minPerKm) || minPerKm <= 0) return '--';
+    var m = Math.floor(minPerKm);
+    var s = Math.round((minPerKm - m) * 60);
+    if(s >= 60){ m += 1; s -= 60; }
+    return pad2(m) + "'" + pad2(s) + '"';
+  }
+
+  /* ---- 图表绘制（速度 / 海拔） ---- */
+  function chartSetup(cvEl, h){
+    var d2 = window.devicePixelRatio || 1;
+    var w = cvEl.parentElement.getBoundingClientRect().width - 28;
+    if(w < 20) w = 260;
+    cvEl.width = Math.round(w*d2);
+    cvEl.height = Math.round(h*d2);
+    cvEl.style.width = w+'px';
+    cvEl.style.height = h+'px';
+    var c = cvEl.getContext('2d');
+    c.setTransform(d2,0,0,d2,0,0);
+    return { c:c, w:w, h:h };
+  }
+
+  function drawSpeedChart(rec){
+    var pts = rec.pts;
+    if(!pts || pts.length < 2) return;
+    var H = 120;
+    var o = chartSetup($('spdChart'), H);
+    var c = o.c, W = o.w;
+    c.clearRect(0,0,W,H);
+    var padL = 34, padR = 8, padT = 10, padB = 20;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+
+    var maxV = 0, minV = 1e9;
+    pts.forEach(function(p){ if(p[2] > maxV) maxV = p[2]; if(p[2] < minV) minV = p[2]; });
+    maxV = Math.max(5, maxV);
+    minV = 0;
+
+    var dark = effectiveTheme() === 'dark';
+    // 网格
+    c.strokeStyle = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+    c.lineWidth = 1;
+    for(var i=0;i<=4;i++){
+      var y = padT + plotH*i/4;
+      c.beginPath(); c.moveTo(padL, y+.5); c.lineTo(W-padR, y+.5); c.stroke();
+      c.fillStyle = dark ? 'rgba(255,255,255,.28)' : 'rgba(0,0,0,.32)';
+      c.font = '9px system-ui';
+      c.textAlign = 'right';
+      c.fillText(Math.round(maxV*(4-i)/4), padL-5, y+3);
+    }
+
+    // 面积
+    var grad = c.createLinearGradient(0,padT,0,padT+plotH);
+    grad.addColorStop(0, 'rgba(255,90,31,.30)');
+    grad.addColorStop(1, 'rgba(255,90,31,.02)');
+    c.beginPath();
+    c.moveTo(padL, padT+plotH);
+    pts.forEach(function(p,i){
+      var x = padL + plotW*i/(pts.length-1);
+      var y = padT + plotH - plotH*((p[2]-minV)/(maxV-minV));
+      c.lineTo(x,y);
+    });
+    c.lineTo(W-padR, padT+plotH);
+    c.closePath();
+    c.fillStyle = grad; c.fill();
+
+    // 折线
+    c.beginPath();
+    pts.forEach(function(p,i){
+      var x = padL + plotW*i/(pts.length-1);
+      var y = padT + plotH - plotH*((p[2]-minV)/(maxV-minV));
+      if(i===0) c.moveTo(x,y); else c.lineTo(x,y);
+    });
+    c.strokeStyle = '#FF5A1F';
+    c.lineWidth = 2; c.lineJoin = 'round'; c.lineCap = 'round';
+    c.stroke();
+
+    // 时间轴
+    c.fillStyle = dark ? 'rgba(255,255,255,.28)' : 'rgba(0,0,0,.32)';
+    c.font = '9px system-ui';
+    c.textAlign = 'center';
+    var totalMin = rec.dur/60000;
+    c.fillText('0 分', padL, H-5);
+    c.fillText(Math.round(totalMin/2)+' 分', padL+plotW/2, H-5);
+    c.fillText(Math.round(totalMin)+' 分', W-padR, H-5);
+
+    $('spdSub').textContent = '0–' + Math.round(maxV) + ' ' + curUnit().code;
+  }
+
+  function drawAltChart(rec){
+    // 没有真实海拔数据时隐藏此卡片
+    var card = $('altCard');
+    var altitude = rec.alt && rec.alt.length ? rec.alt : null;
+    if(!altitude){
+      // 用轨迹做一条示意曲线（基于距离的缓升），并明确标注是估算
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = '';
+    var H = 110;
+    var o = chartSetup($('altChart'), H);
+    var c = o.c, W = o.w;
+    c.clearRect(0,0,W,H);
+    var padL = 40, padR = 8, padT = 10, padB = 20;
+    var plotW = W-padL-padR, plotH = H-padT-padB;
+    var minA = Math.min.apply(null, altitude), maxA = Math.max.apply(null, altitude);
+    var span = Math.max(1, maxA-minA);
+    var dark = effectiveTheme()==='dark';
+    c.strokeStyle = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+    for(var i=0;i<=3;i++){
+      var y = padT + plotH*i/3;
+      c.beginPath(); c.moveTo(padL,y+.5); c.lineTo(W-padR,y+.5); c.stroke();
+    }
+    c.beginPath();
+    altitude.forEach(function(a,i){
+      var x = padL + plotW*i/(altitude.length-1);
+      var y = padT + plotH - plotH*((a-minA)/span);
+      if(i===0) c.moveTo(x,y); else c.lineTo(x,y);
+    });
+    c.strokeStyle = '#3DD9C0';
+    c.lineWidth = 2; c.stroke();
+    $('altSub').textContent = Math.round(minA) + '–' + Math.round(maxA) + ' 米';
+  }
+
+  /* ---- 分段（按公里或更短） ---- */
+  function buildSegments(rec){
+    var list = $('segList');
+    list.innerHTML = '';
+    var pts = rec.pts;
+    if(!pts || pts.length < 2){ return; }
+
+    // 累计距离（米）
+    var cum = [0];
+    for(var i=1;i<pts.length;i++){
+      var d = Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]);
+      cum.push(cum[i-1] + d);
+    }
+    var totalDist = cum[cum.length-1];
+    if(totalDist < 5){ return; }
+
+    // 选一个合适的分段长度
+    var segLen;
+    if(totalDist >= 5000) segLen = 1000;
+    else if(totalDist >= 1500) segLen = 500;
+    else if(totalDist >= 300) segLen = 100;
+    else segLen = 50;
+    // 更新表头
+    var sub = document.querySelector('#segListParent .chart-sub') || null;
+    var head = document.querySelectorAll('.rp-card .chart-sub');
+    Array.prototype.forEach.call(head, function(h){
+      if(h.textContent.indexOf('每') >= 0) h.textContent = '每 ' + fmtDistM(segLen);
+    });
+
+    var nSeg = Math.min(10, Math.max(1, Math.ceil(totalDist/segLen)));
+    var totalDur = rec.dur || 1;
+
+    for(var s=0; s<nSeg; s++){
+      var from = s*segLen;
+      var to = Math.min(totalDist, (s+1)*segLen);
+      var segDist = to - from;
+      if(segDist <= 0) continue;
+
+      // 找出这一段对应的轨迹点区间（按累计距离）
+      var iFrom = 0, iTo = pts.length-1;
+      for(var k=0;k<pts.length;k++){
+        if(cum[k] >= from){ iFrom = k; break; }
+      }
+      for(var k2=pts.length-1;k2>=0;k2--){
+        if(cum[k2] <= to){ iTo = k2; break; }
+      }
+      if(iTo <= iFrom) iTo = Math.min(pts.length-1, iFrom+1);
+
+      // 段内平均速度 = 这些点的速度平均值（本身就是 km/h）
+      var sumV = 0, cnt = 0;
+      for(var k3=iFrom;k3<=iTo;k3++){
+        if(pts[k3][2] > 0.3){ sumV += pts[k3][2]; cnt++; }
+      }
+      var segAvg = cnt > 0 ? sumV/cnt : 0;
+      // 段耗时 = 段距离 / 段均速
+      var segDur = segAvg > 0.05 ? (segDist/1000) / (segAvg/3600000) : 0;
+      if(!isFinite(segDur) || segDur < 0) segDur = 0;
+      // 段耗时不能超过总时长
+      if(segDur > totalDur) segDur = totalDur;
+
+      var color;
+      if(segAvg < 7) color = '#3DD9C0';
+      else if(segAvg < 15) color = '#C8FF2E';
+      else if(segAvg < 40) color = '#FFB020';
+      else color = '#FF3B30';
+
+      var row = document.createElement('div');
+      row.className = 'seg-row';
+      row.innerHTML =
+        '<span class="seg-idx">' + (s+1) + '</span>' +
+        '<span class="seg-cell"><b>' + fmtDistM(segDist) + '</b><span>距离</span></span>' +
+        '<span class="seg-cell"><b>' + fmtShortDur(segDur) + '</b><span>时间</span></span>' +
+        '<span class="seg-cell"><b style="color:' + color + '">' + fmtSpeed(segAvg) + '</b><span>' + curUnit().code + ' 均速</span></span>';
+      list.appendChild(row);
+    }
+  }
+  function fmtShortDur(ms){
+    var s = Math.round(ms/1000), m = Math.floor(s/60);
+    return pad2(m) + ':' + pad2(s%60);
+  }
+
+  var rpCv, rpCtx, rpW = 0, rpH = 0;
+  function rpSize(){
+    rpCv = $('rpCanvas'); rpCtx = rpCv.getContext('2d');
+    var wrap = rpCv.parentElement.getBoundingClientRect();
+    if(wrap.width < 10) return;
+    var d2 = window.devicePixelRatio || 1;
+    rpW = wrap.width; rpH = wrap.height;
+    rpCv.width = Math.round(rpW*d2); rpCv.height = Math.round(rpH*d2);
+    rpCv.style.width = rpW+'px'; rpCv.style.height = rpH+'px';
+    rpCtx.setTransform(d2,0,0,d2,0,0);
+  }
+  function rpSetProgress(p){
+    $('rpBar').style.width = (Math.max(0,Math.min(1,p))*100).toFixed(1)+'%';
+  }
+  function rpDraw(){
+    if(!rpW || !rp.pts.length) return;
+    rpCtx.clearRect(0,0,rpW,rpH);
+    var pts = rp.pts;
+    var SAFE_L=16, SAFE_R=16, SAFE_T=16, SAFE_B=40;
+    var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+    pts.forEach(function(p){
+      if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x;
+      if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y;
+    });
+    var availW = rpW-SAFE_L-SAFE_R, availH = rpH-SAFE_T-SAFE_B;
+    var sw = Math.max(1e-6,maxX-minX), sh = Math.max(1e-6,maxY-minY);
+    var k = Math.min(availW/sw, availH/sh);
+    var ox = SAFE_L + (availW-sw*k)/2;
+    var oy = SAFE_T + (availH-sh*k)/2;
+    function S(p){ return { x: ox+(p.x-minX)*k, y: oy+(p.y-minY)*k }; }
+
+    // 网格
+    rpCtx.strokeStyle = effectiveTheme()==='dark' ? 'rgba(255,255,255,.045)' : 'rgba(0,0,0,.05)';
+    rpCtx.lineWidth = 1;
+    for(var gx=SAFE_L; gx<rpW-SAFE_R; gx+=28){
+      rpCtx.beginPath(); rpCtx.moveTo(gx+.5,SAFE_T); rpCtx.lineTo(gx+.5,rpH-SAFE_B); rpCtx.stroke();
+    }
+    for(var gy=SAFE_T; gy<rpH-SAFE_B; gy+=24){
+      rpCtx.beginPath(); rpCtx.moveTo(SAFE_L,gy+.5); rpCtx.lineTo(rpW-SAFE_R,gy+.5); rpCtx.stroke();
+    }
+
+    // 完整路径（暗）
+    rpCtx.lineCap='round'; rpCtx.lineJoin='round';
+    rpCtx.strokeStyle = effectiveTheme()==='dark' ? 'rgba(255,255,255,.13)' : 'rgba(0,0,0,.12)';
+    rpCtx.lineWidth = 3;
+    rpCtx.beginPath();
+    pts.forEach(function(p,i){
+      var s = S(p);
+      if(i===0) rpCtx.moveTo(s.x,s.y); else rpCtx.lineTo(s.x,s.y);
+    });
+    rpCtx.stroke();
+
+    // 已走部分（着色）
+    var maxV = Math.max(1, rp.rec.max);
+    var upto = Math.min(rp.idx, pts.length-1);
+    for(var i=1;i<=upto;i++){
+      var a = S(pts[i-1]), b = S(pts[i]);
+      rpCtx.beginPath(); rpCtx.moveTo(a.x,a.y); rpCtx.lineTo(b.x,b.y);
+      rpCtx.strokeStyle = speedColor(pts[i].v, maxV);
+      rpCtx.lineWidth = 3.4;
+      rpCtx.stroke();
+    }
+
+    // 起点
+    var s0 = S(pts[0]);
+    rpCtx.beginPath(); rpCtx.arc(s0.x,s0.y,4,0,Math.PI*2);
+    rpCtx.fillStyle = effectiveTheme()==='dark' ? '#1A1C20' : '#fff'; rpCtx.fill();
+    rpCtx.strokeStyle = effectiveTheme()==='dark' ? '#5A5F68' : '#9AA0A9'; rpCtx.lineWidth=2; rpCtx.stroke();
+
+    // 回放光点
+    if(rp.idx < pts.length){
+      var cur = S(pts[Math.max(0,rp.idx)]);
+      rpCtx.beginPath(); rpCtx.arc(cur.x,cur.y,9,0,Math.PI*2);
+      rpCtx.fillStyle = 'rgba(255,90,31,.22)'; rpCtx.fill();
+      rpCtx.beginPath(); rpCtx.arc(cur.x,cur.y,5.5,0,Math.PI*2);
+      rpCtx.fillStyle = '#FF5A1F'; rpCtx.fill();
+      rpCtx.strokeStyle = effectiveTheme()==='dark' ? '#F1F2F4' : '#fff'; rpCtx.lineWidth=2; rpCtx.stroke();
+    }
+  }
+
+  function rpPlay(){
+    if(!rp.pts.length) return;
+    if(rp.idx >= rp.pts.length) rp.idx = 0;   // 播完再点重播
+    rp.playing = true;
+    $('rpPlayTxt').textContent = '暂停';
+    // 总时长控制在 6~14 秒，便于观看
+    var total = rp.pts.length;
+    var stepMs = Math.max(40, Math.min(180, 9000/total));
+    if(rp.timer) clearInterval(rp.timer);
+    rp.timer = setInterval(function(){
+      if(!rp.playing) return;
+      rp.idx++;
+      if(rp.idx >= rp.pts.length){
+        rp.idx = rp.pts.length;
+        rpStopPlay(true);
+        return;
+      }
+      rpDraw();
+      rpSetProgress(rp.idx/(rp.pts.length-1));
+    }, stepMs);
+    rpDraw();
+  }
+  function rpStopPlay(finished){
+    rp.playing = false;
+    if(rp.timer){ clearInterval(rp.timer); rp.timer = null; }
+    if(finished){
+      $('rpPlayTxt').textContent = '重播';
+      rpSetProgress(1);
+    } else {
+      $('rpPlayTxt').textContent = '播放';
+    }
+  }
+  $('btnRpPlay').addEventListener('click', function(){
+    if(rp.playing){ rpStopPlay(false); }
+    else { rpPlay(); }
+  });
+  // 回放页「停止」：点一下就行
+  $('btnRpStop').addEventListener('click', function(){
+    rpStopPlay(false);
+    rp.idx = rp.pts.length;
+    rpDraw();
+    $('rpPlayTxt').textContent = '重播';
+    rpSetProgress(1);
+  });
+  $('btnReplayBack').addEventListener('click', function(){
+    rpStopPlay(false);
+    goScreen('history');
+  });
+  // 详情页右上角导出：导出当前这条记录
+  $('btnRpExport').addEventListener('click', function(){
+    if(!rp.rec) return;
+    var e = $('exportMsg'), t = $('exportMsgText');
+    openSub('exportSheet');
+    // 标记为导出单条
+    rp.exportSingle = true;
+  });
+
+  window.addEventListener('resize', function(){
+    if($('replay').classList.contains('is-active')){
+      rpSize(); rpDraw();
+      if(rp.rec){ drawSpeedChart(rp.rec); drawAltChart(rp.rec); }
+    }
+  });
+
+  /* ================= 屏幕切换 ================= */
+  var SCREENS = ['home','speed','history','replay'];
+  function goScreen(id){
+    SCREENS.forEach(function(s){
+      var el = $(s);
+      if(el) el.classList.toggle('is-active', s === id);
+    });
+    if(id === 'history') renderHistory();
+  }
+  var sheet = $('sheet');
+  function openSheet(){ sheet.classList.add('is-open'); syncSettings(); }
+  function closeSheet(){ sheet.classList.remove('is-open'); }
+  function syncSettings(){
+    Array.prototype.forEach.call(document.querySelectorAll('[data-theme-opt]'), function(b){
+      b.classList.toggle('is-on', b.getAttribute('data-theme-opt')===themePref);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-mode]'), function(b){
+      var m = b.getAttribute('data-mode');
+      b.classList.toggle('is-on', (m==='auto' && !manualMode) || m===manualMode);
+    });
+  }
+  $('btnSettings').addEventListener('click', openSheet);
+  $('btnSettings2').addEventListener('click', openSheet);
+  sheet.addEventListener('click', function(e){
+    if(e.target.hasAttribute('data-close')){ closeSheet(); return; }
+    var tb = e.target.closest('[data-theme-opt]');
+    if(tb){ themePref = tb.getAttribute('data-theme-opt'); localStorage.setItem(THEME_KEY,themePref); applyTheme(); syncSettings(); return; }
+    var mb = e.target.closest('[data-mode]');
+    if(mb){
+      var m = mb.getAttribute('data-mode');
+      manualMode = (m==='auto') ? null : m;
+      localStorage.setItem(MODE_KEY, manualMode||'auto');
+      syncSettings(); renderSpeed();
+    }
+  });
+
+  /* ================= 事件 ================= */
+  $('btnStart').addEventListener('click', goSpeed);
+  $('btnStartRec').addEventListener('click', startRecording);
+  $('btnBackSpeed').addEventListener('click', function(){
+    if(st.running) stopRecording();
+    goHome();
+  });
+  // 首页返回：本来就是最顶层，点了没反应
+  $('btnBackHome').addEventListener('click', function(e){ e.preventDefault(); });
+
+  /* ---- 首页「历史」按钮 ---- */
+  $('btnHistory').addEventListener('click', function(){ goScreen('history'); });
+
+  $('btnHistBack').addEventListener('click', goHome);
+  $('btnSettings3').addEventListener('click', openSheet);
+
+  // 首页「模拟演示」：直接进测速页并开始模拟
+  $('btnSimHome').addEventListener('click', function(){
+    goSpeed();
+    setTimeout(function(){
+      if(!st.running){
+        st.running = true;
+        resetStats();
+        st.startAt = Date.now();
+        syncStartBtn();
+      }
+      startSim();
+    }, 80);
+  });
+  /* ================= 长按停止（5 秒） ================= */
+  var HOLD_MS = 5000;
+  var HOLD_TXT = '长按停止';
+  var hold = { timer:null, raf:null, startAt:0, active:false, tapped:false };
+
+  function holdReset(){
+    hold.active = false;
+    if(hold.timer){ clearTimeout(hold.timer); hold.timer = null; }
+    if(hold.raf){ cancelAnimationFrame(hold.raf); hold.raf = null; }
+    var btn = $('btnStop');
+    btn.classList.remove('is-holding','is-done');
+    $('holdFill').style.width = '0%';
+    if(!hold.tapped) $('holdTxt').textContent = HOLD_TXT;
+  }
+  function holdFinish(){
+    hold.active = false;
+    if(hold.timer){ clearTimeout(hold.timer); hold.timer = null; }
+    if(hold.raf){ cancelAnimationFrame(hold.raf); hold.raf = null; }
+    var btn = $('btnStop');
+    $('holdFill').style.width = '100%';
+    $('holdTxt').textContent = '已停止';
+    btn.classList.remove('is-holding');
+    btn.classList.add('is-done');
+    // 真正停止
+    stopRecording();
+    setTimeout(function(){
+      $('holdTxt').textContent = HOLD_TXT;
+      btn.classList.remove('is-done');
+      $('holdFill').style.width = '0%';
+    }, 1400);
+  }
+  function holdStart(e){
+    if(e) e.preventDefault();
+    if(hold.active) return;
+    if($('btnStop').classList.contains('is-done')) return;
+    if(!st.running){
+      // 没在记录时，长按没意义，提示一下
+      $('holdTxt').textContent = '先点「开始」';
+      hold.tapped = true;
+      setTimeout(function(){
+        if(!hold.active){ hold.tapped = false; $('holdTxt').textContent = HOLD_TXT; }
+      }, 1300);
+      return;
+    }
+    hold.active = true;
+    hold.tapped = false;
+    hold.startAt = performance.now();
+    $('btnStop').classList.add('is-holding');
+    $('holdTxt').textContent = '继续按住';
+    (function step(){
+      if(!hold.active) return;
+      var p = Math.min(1, (performance.now() - hold.startAt) / HOLD_MS);
+      $('holdFill').style.width = (p*100).toFixed(1)+'%';
+      if(p >= 1){ holdFinish(); return; }
+      hold.raf = requestAnimationFrame(step);
+    })();
+    hold.timer = setTimeout(holdFinish, HOLD_MS);
+  }
+  function holdRelease(){
+    if(!hold.active) return;
+    var held = performance.now() - hold.startAt;
+    hold.active = false;
+    if(hold.timer){ clearTimeout(hold.timer); hold.timer = null; }
+    if(hold.raf){ cancelAnimationFrame(hold.raf); hold.raf = null; }
+    var btn = $('btnStop');
+    btn.classList.remove('is-holding');
+    $('holdFill').style.width = '0%';
+
+    if(held < 420){
+      // 只是轻点：不停止，只提示
+      hold.tapped = true;
+      $('holdTxt').textContent = '长按即停止';
+      setTimeout(function(){
+        if(!hold.active && hold.tapped){
+          hold.tapped = false;
+          $('holdTxt').textContent = HOLD_TXT;
+        }
+      }, 1500);
+    } else {
+      $('holdTxt').textContent = HOLD_TXT;
+    }
+  }
+  (function bindHold(){
+    var btn = $('btnStop');
+    btn.addEventListener('pointerdown', holdStart);
+    btn.addEventListener('pointerup', holdRelease);
+    btn.addEventListener('pointerleave', holdRelease);
+    btn.addEventListener('pointercancel', holdRelease);
+    btn.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  })();
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && sheet.classList.contains('is-open')) closeSheet();
+  });
+
+  /* ================= 导入与导出 ================= */
+  var ALLOWED_EXT = ['.fit', '.tcx'];
+
+  function openSub(id){
+    var el = $(id);
+    if(!el) return;
+    el.classList.add('is-open');
+  }
+  function closeSub(id){
+    var el = $(id);
+    if(!el) return;
+    el.classList.remove('is-open');
+    var msg = el.querySelector('.io-msg');
+    if(msg) msg.classList.remove('is-show');
+  }
+  document.addEventListener('click', function(e){
+    var c = e.target.closest('[data-subclose]');
+    if(c) closeSub(c.getAttribute('data-subclose'));
+  });
+
+  $('ioExport').addEventListener('click', function(){ closeSheet(); openSub('exportSheet'); });
+  $('ioImport').addEventListener('click', function(){ closeSheet(); openSub('importSheet'); });
+
+  function showMsg(elId, textId, ok, msg){
+    var el = $(elId), t = $(textId);
+    el.className = 'io-msg is-show ' + (ok ? 'ok' : 'err');
+    t.textContent = msg;
+  }
+
+  /* ---- 导出 ---- */
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function isoTime(d){
+    return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+
+           pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds())+'Z';
+  }
+  function downloadBlob(content, filename, mime){
+    if(window.__IS_NATIVE__ && window.__nativeExport){ try { if(window.__nativeExport(filename, content, mime)) return; } catch(e){} }
+    var blob = new Blob([content], {type: mime});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
+  }
+  function exportTCX(){
+    var pts = st.points;
+    if(pts.length < 2) return false;
+    var start = new Date(st.startAt || Date.now());
+    var lines = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">',
+      '  <Activities><Activity Sport="Other">',
+      '    <Id>'+isoTime(start)+'</Id>',
+      '    <Lap StartTime="'+isoTime(start)+'">',
+      '      <TotalTimeSeconds>'+(st.startAt?((Date.now()-st.startAt)/1000).toFixed(1):'0')+'</TotalTimeSeconds>',
+      '      <DistanceMeters>'+(estDistance()).toFixed(1)+'</DistanceMeters>',
+      '      <MaximumSpeed>'+((st.max)/3.6).toFixed(3)+'</MaximumSpeed>',
+      '      <Track>'
+    ];
+    pts.forEach(function(p){
+      lines.push('        <Trackpoint>');
+      lines.push('          <Time>'+isoTime(new Date(p.t))+'</Time>');
+      lines.push('          <Position><LatitudeDegrees>'+(p.lat||0).toFixed(6)+'</LatitudeDegrees><LongitudeDegrees>'+(p.lon||0).toFixed(6)+'</LongitudeDegrees></Position>');
+      lines.push('          <AltitudeMeters>0</AltitudeMeters>');
+      lines.push('          <DistanceMeters>0</DistanceMeters>');
+      lines.push('          <Extensions><TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2"><Speed>'+(p.v/3.6).toFixed(3)+'</Speed></TPX></Extensions>');
+      lines.push('        </Trackpoint>');
+    });
+    lines.push('      </Track>');
+    lines.push('    </Lap>');
+    lines.push('  </Activity></Activities>');
+    lines.push('</TrainingCenterDatabase>');
+    var name = 'speedscope-'+(st.startAt?isoTime(new Date(st.startAt)):isoTime(new Date())).replace(/[:Z]/g,'-')+'.tcx';
+    downloadBlob(lines.join('\n'), name, 'application/xml');
+    return true;
+  }
+  function estDistance(){
+    var p = st.points, d = 0;
+    for(var i=1;i<p.length;i++){
+      d += Math.hypot(p[i].x-p[i-1].x, p[i].y-p[i-1].y);
+    }
+    return d;
+  }
+  function exportFIT(){
+    // 说明：FIT 是二进制协议，这里生成一个简化的 FIT 容器（带正确的头尾）。
+    // 真机上应改用完整 FIT SDK 编码，网页版只演示流程。
+    var pts = st.points;
+    if(pts.length < 2) return false;
+    var buf = new Uint8Array(12 + 2 + pts.length * 8);
+    // FIT header
+    buf[0] = 14; buf[1] = 0x10;
+    var size = buf.length - 14;
+    buf[4] = size & 0xFF; buf[5] = (size>>8) & 0xFF;
+    buf[6] = (size>>16) & 0xFF; buf[7] = (size>>24) & 0xFF;
+    buf[8] = 0x2E; buf[9] = 0x46; buf[10] = 0x49; buf[11] = 0x54; // ".FIT"
+    // 简化数据：每条记录 时间戳(4) + 速度(2) + 保留(2)
+    var off = 14;
+    pts.forEach(function(p){
+      var t = Math.floor(p.t/1000);
+      buf[off++] = t & 0xFF; buf[off++] = (t>>8)&0xFF; buf[off++] = (t>>16)&0xFF; buf[off++] = (t>>24)&0xFF;
+      var v = Math.round(p.v*100) & 0xFFFF;
+      buf[off++] = v & 0xFF; buf[off++] = (v>>8)&0xFF;
+      buf[off++] = 0; buf[off++] = 0;
+    });
+    // CRC 占位
+    buf[off] = 0; buf[off+1] = 0;
+    var blob = new Blob([buf], {type:'application/octet-stream'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'speedscope-'+(st.startAt?isoTime(new Date(st.startAt)):isoTime(new Date())).replace(/[:Z]/g,'-')+'.fit';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
+    return true;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-export]'), function(btn){
+    btn.addEventListener('click', function(){
+      var kind = btn.getAttribute('data-export');
+      var ok = kind === 'fit' ? exportFIT() : exportTCX();
+      if(ok){
+        showMsg('exportMsg', 'exportMsgText', true, '已导出 ' + (kind==='fit'?'FIT':'TCX') + ' 文件，包含 ' + st.points.length + ' 个轨迹点');
+      } else {
+        showMsg('exportMsg', 'exportMsgText', false, '还没有轨迹数据，先测一段再导出');
+      }
+    });
+  });
+
+  /* ---- 导入 ---- */
+  function extOf(name){
+    var i = name.lastIndexOf('.');
+    return i < 0 ? '' : name.slice(i).toLowerCase();
+  }
+  function handleFile(file){
+    if(!file) return;
+    var ext = extOf(file.name);
+    if(ALLOWED_EXT.indexOf(ext) < 0){
+      showMsg('importMsg', 'importMsgText', false, '文件格式不对，只能导入 .fit 或 .tcx 文件');
+      $('dropTitle').textContent = '拖文件到这里';
+      $('dropSub').textContent = '或者点下面的按钮选择文件';
+      return;
+    }
+    var kb = file.size > 1024*1024 ? (file.size/1024/1024).toFixed(1)+' MB' : Math.max(1,Math.round(file.size/1024))+' KB';
+    showMsg('importMsg', 'importMsgText', true, '解析中：' + file.name + '（' + kb + '）');
+    $('dropTitle').textContent = file.name;
+    $('dropSub').textContent = kb + ' · ' + (ext==='.fit'?'FIT 文件':'TCX 文件');
+
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      try{
+        var rec = (ext === '.tcx') ? parseTCX(ev.target.result, file.name)
+                                   : parseFIT(ev.target.result, file.name);
+        if(!rec){
+          showMsg('importMsg', 'importMsgText', false, '这个文件里没找到轨迹数据');
+          return;
+        }
+        rec.imported = true;
+        rec.srcType = ext === '.tcx' ? 'TCX' : 'FIT';
+        records.unshift(rec);
+        saveRecords();
+        renderHistory();
+        var extra = [];
+        if(rec.hr && rec.hr.length) extra.push('心率');
+        if(rec.steps) extra.push('步数');
+        showMsg('importMsg', 'importMsgText', true,
+          '导入成功：' + file.name + '，' + rec.pts.length + ' 个轨迹点' +
+          (extra.length ? '，包含 ' + extra.join('、') : ''));
+      }catch(err){
+        showMsg('importMsg', 'importMsgText', false, '解析失败：' + (err && err.message ? err.message : '文件损坏或格式不支持'));
+      }
+    };
+    reader.onerror = function(){
+      showMsg('importMsg', 'importMsgText', false, '读取文件失败');
+    };
+    // FIT 是二进制，TCX 是文本
+    if(ext === '.tcx') reader.readAsText(file);
+    else reader.readAsArrayBuffer(file);
+  }
+
+  /* ---- 解析 TCX（XML） ---- */
+  function parseTCX(text, fileName){
+    var doc;
+    try{ doc = new DOMParser().parseFromString(text, 'text/xml'); }
+    catch(_){ return null; }
+    if(doc.getElementsByTagName('parsererror').length) return null;
+
+    var tps = doc.getElementsByTagName('Trackpoint');
+    if(!tps.length) tps = doc.getElementsByTagNameNS('*','Trackpoint');
+    if(!tps.length) return null;
+
+    var pts = [], hr = [], cad = [], alt = [];
+    var firstT = null, lastT = null, steps = 0;
+
+    for(var i=0;i<tps.length;i++){
+      var tp = tps[i];
+      function g(tag){
+        var e = tp.getElementsByTagName(tag)[0] || tp.getElementsByTagNameNS('*',tag)[0];
+        return e ? e.textContent : null;
+      }
+      var lat = parseFloat(g('LatitudeDegrees'));
+      var lon = parseFloat(g('LongitudeDegrees'));
+      var t = g('Time');
+      var tm = t ? Date.parse(t) : null;
+      var spd = parseFloat(g('Speed'));           // m/s
+      var hrV = parseFloat(g('HeartRateBpm') || '') || (function(){
+        var e = tp.getElementsByTagName('HeartRateBpm')[0] || tp.getElementsByTagNameNS('*','HeartRateBpm')[0];
+        if(!e) return NaN;
+        var v = e.getElementsByTagName('Value')[0] || e.getElementsByTagNameNS('*','Value')[0];
+        return v ? parseFloat(v.textContent) : NaN;
+      })();
+      var cadV = parseFloat(g('Cadence'));
+      var altV = parseFloat(g('AltitudeMeters'));
+
+      if(!isNaN(lat) && !isNaN(lon)) pts.push([lat, lon, isNaN(spd)?0:spd*3.6]);
+      if(!isNaN(hrV) && hrV > 0) hr.push(hrV);
+      if(!isNaN(cadV) && cadV > 0) cad.push(cadV);
+      if(!isNaN(altV)) alt.push(altV);
+      if(tm){ if(firstT == null) firstT = tm; lastT = tm; }
+    }
+    if(pts.length < 2) return null;
+
+    // 经纬度 → 平面米（以首点为原点）
+    var base = pts[0];
+    var flat = pts.map(function(p){
+      return [
+        (p[1]-base[1]) * 111320 * Math.cos(base[0]*Math.PI/180),
+        (p[0]-base[0]) * 110540,
+        p[2]
+      ];
+    });
+    var dist = 0;
+    for(var j=1;j<flat.length;j++) dist += Math.hypot(flat[j][0]-flat[j-1][0], flat[j][1]-flat[j-1][1]);
+
+    var dur = (firstT && lastT) ? (lastT-firstT) : (flat.length*1000);
+    var speeds = flat.map(function(p){return p[2];}).filter(function(v){return v > 0.3;});
+    var avg = speeds.length ? speeds.reduce(function(a,b){return a+b;},0)/speeds.length : 0;
+    var max = speeds.length ? Math.max.apply(null, speeds) : 0;
+
+    return {
+      id: 'imp' + Date.now(),
+      t: firstT || Date.now(),
+      dur: dur,
+      avg: avg,
+      max: max,
+      dist: dist,
+      sim: false,
+      pts: flat,
+      hr: hr.length ? hr : null,
+      cad: cad.length ? cad : null,
+      alt: alt.length ? alt : null
+    };
+  }
+
+  /* ---- 解析 FIT（二进制，尽力而为） ---- */
+  function parseFIT(buf, fileName){
+    // 说明：完整 FIT 解码需要定义消息表。这里做一个轻量扫描：
+    // 找出 FIT header、遍历记录，尽可能提取 位置(record field 0,1)/速度(enhanced speed field 73)/
+    // 心率(field 3)/步频(field 4)/海拔(field 2)。
+    // 网页版只做基础支持，复杂文件建议在 App 内用完整 SDK。
+    try{
+      var dv = new DataView(buf);
+      // 头 12 字节（或 14）
+      if(buf.byteLength < 12) return null;
+      var headerSize = buf[0];
+      var dataSize = dv.getUint32(4, true);
+      if(headerSize < 12 || headerSize > 14) return null;
+
+      // 检查 ".FIT"
+      var sig = String.fromCharCode(buf[8],buf[9],buf[10],buf[11]);
+      if(sig !== '.FIT'){
+        // 有些文件签名位置不同，继续尝试
+      }
+
+      // 简化：直接把整段数据按 record 结构扫描不可靠，
+      // 因此这里只返回一个空壳会让用户困惑，直接判定不支持并提示。
+      throw new Error('网页版暂不支持解析 FIT 二进制文件，建议导出为 TCX');
+    }catch(e){
+      throw e;
+    }
+  }
+  $('pickBtn').addEventListener('click', function(){ $('fileInput').click(); });
+  $('fileInput').addEventListener('change', function(e){
+    handleFile(e.target.files && e.target.files[0]);
+    e.target.value = '';
+  });
+  // 拖拽
+  var drop = $('fileDrop');
+  ['dragenter','dragover'].forEach(function(ev){
+    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add('is-over'); });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove('is-over'); });
+  });
+  drop.addEventListener('drop', function(e){
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    handleFile(f);
+  });
+  drop.addEventListener('click', function(){ $('fileInput').click(); });
+
+  /* ================= 初始化 ================= */
+  applyTheme();
+  tape = $('tape');
+  buildTape(tape);
+  buildArcTicks();
+  heading = 0; renderHeading();
+  requestAnimationFrame(tickHeadingLoop);
+  buildUnitGrid(); applyUnit();
+  renderSpeed();
+  sizeCanvas();
+  setInterval(function(){
+    if(st.running && st.startAt) $('statTime').textContent = fmtTime(Date.now()-st.startAt);
+  }, 500);
+  startPeek();
+
+  /* ===== 挂载原生钩子 ===== */
+  if(window.__IS_NATIVE__){
+    window.__handleNativePos = function(fake){ onPos(fake); };
+    window.__handleNativeLocState = function(d){ window.__native_locationState(d); };
+    window.__handleNativeAccel = function(d){
+      if(!d || d.g == null) return;
+      st.accel = d.g;
+      st.accelSmooth = st.accelSmooth*0.82 + st.accel*0.18;
+      var g = st.accelSmooth;
+      var av = $('accVal'); if(av) av.textContent = g.toFixed(2);
+      var bar = $('accBar');
+      if(bar){
+        bar.style.left = Math.max(0, Math.min(100, (g/2)*100)) + '%';
+        var dev = Math.abs(g - 1);
+        bar.style.background = dev > 0.35 ? 'var(--c-max)' : (dev > 0.15 ? 'var(--c-fast)' : 'var(--c-mid)');
+      }
+      var mv = $('motionVal');
+      if(mv){
+        var active = Math.abs(g-1) > 0.18;
+        mv.textContent = st.speed < 0.8 ? (active ? '有晃动' : '静止') : (active ? '运动中' : '匀速');
+      }
+    };
+    window.__handleNativeHeading = function(deg){ setHeading(deg); };
+    window.__handleNativePressure = function(d){
+      window.__baroAlt = d.alt;
+      var pinned = $('altVal');
+      if(pinned && d.alt != null && isFinite(d.alt)){
+        pinned.innerHTML = d.alt.toFixed(1) + '<small>米</small>';
+      }
+      if(st.running){
+        if(st.lastBaro == null) st.lastBaro = d.alt;
+        var delta = d.alt - st.lastBaro;
+        if(delta > 0.3){ st.climb = (st.climb||0) + delta; st.lastBaro = d.alt; }
+        else if(delta < -0.3){ st.climb = Math.max(0, (st.climb||0) - Math.abs(delta)); st.lastBaro = d.alt; }
+      }
+    };
+    window.__handleNativeDenied = function(){
+      st.source = 'gps-err'; updateSource();
+      var cv = $('coordVal'); if(cv) cv.textContent = '未授权定位';
+    };
+    window.__goHome = function(){ if(st.running) stopRecording(); goHome(); };
+    window.__nativeExport = function(fileName, content, mime){
+      try { return AndroidBridge.saveAndShare(fileName, content, mime); } catch(e){ return false; }
+    };
+    try { if(AndroidBridge.retryLocation) setTimeout(function(){ AndroidBridge.retryLocation(); }, 600); } catch(e){}
+  }
+  bindOrientation();
+  bindMotion();
+
+  // 历史记录
+  loadRecords();
+  renderHistory();
+
+  // 指南针独立自检：3 秒内没收到方向数据，给一句提示（不影响指南针本身）
+  setTimeout(function(){
+    if(!orientLive){
+      var sub = $('dirSub');
+      if(sub) sub.textContent = '当前环境无方向传感器，可先点「模拟演示」看效果';
+    }
+  }, 3000);
+})();
+</script>
+</body>
+</html>

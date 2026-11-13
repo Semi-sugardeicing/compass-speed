@@ -1,0 +1,31 @@
+# 签名密钥 —— 绝对不能提交
+*.jks
+*.keystore
+*.p12
+local.properties
+
+# 构建产物
+build/
+.gradle/
+.kotlin/
+*.apk
+*.aab
+*.ap_
+*.apk.idsig
+output.json
+
+# 打包临时目录
+release/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 日志与临时文件
+*.log
+*.hprof

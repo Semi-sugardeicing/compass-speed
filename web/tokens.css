@@ -1,0 +1,100 @@
+/* ============================================================
+   指南针测速 · 设计变量
+   风格参考：浅灰纸感 + 近黑文字 + 极简的橙点缀
+   ============================================================ */
+
+:root {
+  /* ---------- 字体 ---------- */
+  --font: "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei",
+          system-ui, -apple-system, sans-serif;
+  --num: "SF Pro Display", "Inter", "Helvetica Neue", system-ui, -apple-system, sans-serif;
+
+  /* ---------- 圆角 ---------- */
+  --radius: 14px;        /* 卡片、大按钮 */
+  --radius-sm: 10px;     /* 小元素 */
+  --radius-pill: 999px;  /* 胶囊 */
+
+  /* ---------- 安全区 ---------- */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --top-gap: 10px;
+
+  /* ---------- 动效 ---------- */
+  --ease: cubic-bezier(.2, .8, .2, 1);
+
+  /* ---------- 速度色阶（轨迹着色） ---------- */
+  --c-slow: #3DD9C0;
+  --c-mid: #C8FF2E;
+  --c-fast: #FFB020;
+  --c-max: #FF3B30;
+}
+
+/* ============================================================
+   浅色主题（默认，跟参考图）
+   ============================================================ */
+html[data-theme="light"] {
+  /* 背景层次：纸感浅灰，不是纯白 */
+  --bg: #F1F2F4;          /* 页面底色 83% 主色 */
+  --bg-2: #FFFFFF;        /* 浮层/面板 */
+  --surface: #FFFFFF;     /* 卡片 */
+  --surface-2: #E8E9EC;   /* 次级块 */
+
+  /* 线条 */
+  --line: #DFDFE2;        /* 分隔线 4% */
+
+  /* 文字 */
+  --text: #17181C;        /* 近黑 6% */
+  --muted: #7C7575;       /* 暖调中灰 2% */
+  --faint: #A8A2A2;       /* 更浅的辅助 */
+
+  /* 强调：只用于小面积点缀 */
+  --accent: #C8401A;      /* 砖橙，比纯橙更沉，跟浅底更配 */
+  --neon: #6E8F1F;        /* 暗一点的青绿（浅底上才够对比） */
+
+  /* 刻度 */
+  --tick-major: #3A3C42;
+  --tick-minor: #C3C5CA;
+
+  /* 玻璃（设置键） */
+  --glass: rgba(255, 255, 255, .78);
+  --glass-line: rgba(0, 0, 0, .07);
+
+  /* 阴影：极轻，靠留白和线条分层，不靠阴影 */
+  --shadow: 0 1px 3px rgba(23, 24, 28, .05);
+  --shadow-lg: 0 8px 28px rgba(23, 24, 28, .10);
+
+  /* 按钮 */
+  --btn-primary-bg: #17181C;
+  --btn-primary-fg: #F1F2F4;
+}
+
+/* ============================================================
+   深色主题
+   ============================================================ */
+html[data-theme="dark"] {
+  --bg: #0F1013;
+  --bg-2: #191B1F;
+  --surface: #1B1D22;
+  --surface-2: #23262C;
+
+  --line: #2C2F36;
+
+  --text: #F0F1F3;
+  --muted: #9A9696;
+  --faint: #6E6A6A;
+
+  --accent: #E2562C;
+  --neon: #C8FF2E;
+
+  --tick-major: #D8DADE;
+  --tick-minor: #52565E;
+
+  --glass: rgba(255, 255, 255, .09);
+  --glass-line: rgba(255, 255, 255, .16);
+
+  --shadow: none;
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, .45);
+
+  --btn-primary-bg: #F0F1F3;
+  --btn-primary-fg: #0F1013;
+}

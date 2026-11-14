@@ -6,6 +6,8 @@
 
 <img src="docs/preview.jpg" width="320" alt="指南针主界面">
 
+**[⬇ 下载 APK](../../releases/latest)** · 需要 Android 14（API 34）及以上
+
 ---
 
 ## 功能

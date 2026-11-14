@@ -1,12 +1,30 @@
-# 指南针测速 · Compass Speed
+<img src="docs/preview.jpg" width="320" align="right" alt="指南针主界面">
 
-一个安卓运动测速 App：**指南针指向 + GPS 实时测速 + 轨迹记录**。界面用 HTML/CSS/JS 写，外面套一层原生壳去访问 GPS 和传感器。
+<h1>指南针测速 · Compass Speed</h1>
 
-> 界面全部在 WebView 里，同一份 HTML 也能在电脑浏览器直接打开当网页版用。
+**一个能真正陪着走一段路的安卓小工具。** 打开就能看见北方在哪，抬手就知道自己走多快。
 
-<img src="docs/preview.jpg" width="320" alt="指南针主界面">
+GPS 实时测速 · 磁力指南针 · 轨迹回放 · 海拔与爬升 · 步数统计 · TCX 导入导出
 
-**[⬇ 下载 APK](../../releases/latest)** · 需要 Android 14（API 34）及以上
+<a href="../../releases/latest"><img alt="下载 APK" src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-APK%20v1.0-2ea44f?style=for-the-badge&logo=android&logoColor=white"></a>
+<img alt="Android 14+" src="https://img.shields.io/badge/Android-14%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white">
+<a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge"></a>
+<img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-2.0-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white">
+<img alt="WebView" src="https://img.shields.io/badge/UI-HTML%2FCSS%2FJS-E34F26?style=for-the-badge&logo=html5&logoColor=white">
+
+<br clear="right">
+
+> 界面全部跑在 WebView 里，同一份 HTML 也能在电脑浏览器直接打开当网页版用 —— 也就是说，这个 App 的界面，你在电脑上就能先看一眼。
+
+---
+
+## 这是什么
+
+一个安卓运动测速 App，把手机变成一个随身的测速仪 + 指南针 + 轨迹记录仪。
+
+它做的事情很朴素：**告诉你朝哪走、走多快、走了多远、爬升了多少**。
+
+界面不用原生控件画，而是用 HTML/CSS/JS 写在 WebView 里；外面套一层 Kotlin 原生壳，负责去问系统要 GPS 和传感器的数据。好处是界面能做得足够自在，改起来也快 —— 改一个 `app.html`，网页版和 APK 同时生效。
 
 ---
 

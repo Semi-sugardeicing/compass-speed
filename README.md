@@ -4,6 +4,8 @@
 
 > 界面全部在 WebView 里，同一份 HTML 也能在电脑浏览器直接打开当网页版用。
 
+<img src="docs/preview.jpg" width="320" alt="指南针主界面">
+
 ---
 
 ## 功能

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0B0C0E">
+<title>图标方案 · 指南针测速</title>
+<style>
+:root{
+  --font:"PingFang SC","HarmonyOS Sans SC","MiSans","Microsoft YaHei",system-ui,sans-serif;
+  --bg:#0B0C0E;--surface:#16181C;--line:#2B2E35;--text:#F4F5F6;--muted:#A1A5AD;--faint:#6E737C;
+  --accent:#FF5A1F;--neon:#C8FF2E;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);font-family:var(--font);
+  padding:24px 18px 40px;-webkit-font-smoothing:antialiased;
+}
+h1{font-size:19px;font-weight:700;margin:0 0 6px;letter-spacing:-.01em}
+.sub{font-size:12px;color:var(--faint);margin:0 0 24px;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:16px;
+  padding:18px 14px 14px;display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+.icon-wrap{
+  width:96px;height:96px;border-radius:22px;display:grid;place-items:center;overflow:hidden;
+  background:#0B0C0E;
+}
+.icon-wrap.mask{
+  width:88px;height:88px;border-radius:50%;background:#1A1C20;
+}
+.icon-wrap svg{width:100%;height:100%;display:block}
+.icon-wrap.round{border-radius:50%}
+.name{font-size:13px;font-weight:600}
+.desc{font-size:10.5px;color:var(--faint);text-align:center;line-height:1.5;margin-top:-6px}
+/* 小尺寸预览 */
+.small-row{display:flex;align-items:center;gap:14px;margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+.small-item{display:flex;flex-direction:column;align-items:center;gap:6px}
+.small-item span{font-size:9px;color:var(--faint)}
+.sv{display:grid;place-items:center;background:#0B0C0E;border-radius:9px;overflow:hidden}
+.sv svg{width:100%;height:100%}
+</style>
+</head>
+<body>
+
+<h1>图标方案</h1>
+<p class="sub">简笔画小人跑步，4 个方向。都用了品牌橙红 + 荧光绿点缀，深色底。</p>
+
+<div class="grid">
+
+  <!-- A：实心剪影跑者 -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg viewBox="0 0 108 108">
+        <rect width="108" height="108" fill="#0B0C0E"/>
+        <!-- 速度线 -->
+        <g stroke="#C8FF2E" stroke-width="3" stroke-linecap="round" opacity=".85">
+          <line x1="12" y1="44" x2="30" y2="44"/>
+          <line x1="8" y1="56" x2="24" y2="56"/>
+          <line x1="14" y1="68" x2="28" y2="68"/>
+        </g>
+        <!-- 头 -->
+        <circle cx="62" cy="32" r="8.5" fill="#FF5A1F"/>
+        <!-- 身体 -->
+        <path d="M60 42 L54 62 L46 82" stroke="#FF5A1F" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <!-- 前腿 -->
+        <path d="M54 62 L68 74 L74 88" stroke="#FF5A1F" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <!-- 后腿 -->
+        <path d="M58 58 L44 68 L36 84" stroke="#FF5A1F" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity=".85"/>
+        <!-- 手臂 -->
+        <path d="M61 48 L76 44 L86 50" stroke="#FF5A1F" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M60 50 L46 58 L38 52" stroke="#FF5A1F" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity=".85"/>
+      </svg>
+    </div>
+    <div class="name">A · 速度线跑者</div>
+    <div class="desc">左侧三道速度线，动感强</div>
+  </div>
+
+  <!-- B：单线条跑者 -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg viewBox="0 0 108 108">
+        <rect width="108" height="108" fill="#0B0C0E"/>
+        <circle cx="108" cy="108" r="76" fill="#1A1C20" opacity=".7"/>
+        <g stroke="#F4F5F6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <path d="M60 30 a7 7 0 1 0 .1 0"/>
+          <path d="M58 42 L52 60 L44 80"/>
+          <path d="M52 60 L66 72 L72 88"/>
+          <path d="M56 56 L42 66 L34 82"/>
+          <path d="M58 46 L74 44 L84 52"/>
+          <path d="M57 48 L44 54 L36 48"/>
+        </g>
+        <circle cx="60" cy="30" r="7.5" fill="#C8FF2E"/>
+      </svg>
+    </div>
+    <div class="name">B · 单线跑者</div>
+    <div class="desc">细线条，荧光绿点头，简洁</div>
+  </div>
+
+  <!-- C：粗笔画 + 圆底 -->
+  <div class="card">
+    <div class="icon-wrap round" style="background:#FF5A1F">
+      <svg viewBox="0 0 108 108">
+        <circle cx="54" cy="54" r="54" fill="#FF5A1F"/>
+        <g stroke="#0B0C0E" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <path d="M56 36 a8 8 0 1 0 .1 0"/>
+          <path d="M55 46 L50 62 L43 80"/>
+          <path d="M50 62 L64 73 L70 88"/>
+          <path d="M53 58 L40 68 L34 84"/>
+          <path d="M56 49 L72 46 L82 54"/>
+          <path d="M54 51 L42 57 L35 51"/>
+        </g>
+      </svg>
+    </div>
+    <div class="name">C · 橙底黑跑者</div>
+    <div class="desc">橙色圆底，黑色剪影，辨识度高</div>
+  </div>
+
+  <!-- D：跑者 + 指南针针 -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg viewBox="0 0 108 108">
+        <rect width="108" height="108" fill="#0B0C0E"/>
+        <!-- 外圈刻度 -->
+        <circle cx="54" cy="54" r="44" fill="none" stroke="#2B2E35" stroke-width="2"/>
+        <g stroke="#3A3E46" stroke-width="2" stroke-linecap="round">
+          <line x1="54" y1="10" x2="54" y2="17"/>
+          <line x1="54" y1="91" x2="54" y2="98"/>
+          <line x1="10" y1="54" x2="17" y2="54"/>
+          <line x1="91" y1="54" x2="98" y2="54"/>
+        </g>
+        <circle cx="54" cy="54" r="33" fill="#141619"/>
+        <!-- 跑者 -->
+        <g stroke="#FF5A1F" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <path d="M55 36 a6 6 0 1 0 .1 0"/>
+          <path d="M54 44 L50 58 L44 72"/>
+          <path d="M50 58 L62 67 L67 79"/>
+          <path d="M52 55 L41 63 L36 76"/>
+          <path d="M55 47 L68 45 L76 51"/>
+          <path d="M53 49 L43 54 L37 49"/>
+        </g>
+        <circle cx="55" cy="36" r="6" fill="#C8FF2E"/>
+      </svg>
+    </div>
+    <div class="name">D · 罗盘跑者</div>
+    <div class="desc">外圈方位刻度，呼应指南针主题</div>
+  </div>
+
+</div>
+
+<div class="small-row">
+  <div class="small-item">
+    <div class="sv" style="width:48px;height:48px">
+      <svg viewBox="0 0 108 108"><rect width="108" height="108" fill="#0B0C0E"/><g stroke="#C8FF2E" stroke-width="3" stroke-linecap="round"><line x1="12" y1="44" x2="30" y2="44"/><line x1="8" y1="56" x2="24" y2="56"/><line x1="14" y1="68" x2="28" y2="68"/></g><circle cx="62" cy="32" r="8.5" fill="#FF5A1F"/><path d="M60 42 L54 62 L46 82" stroke="#FF5A1F" stroke-width="8" stroke-linecap="round" fill="none"/><path d="M54 62 L68 74 L74 88" stroke="#FF5A1F" stroke-width="7" stroke-linecap="round" fill="none"/><path d="M58 58 L44 68 L36 84" stroke="#FF5A1F" stroke-width="7" stroke-linecap="round" fill="none" opacity=".85"/><path d="M61 48 L76 44 L86 50" stroke="#FF5A1F" stroke-width="6" stroke-linecap="round" fill="none"/><path d="M60 50 L46 58 L38 52" stroke="#FF5A1F" stroke-width="6" stroke-linecap="round" fill="none" opacity=".85"/></svg>
+    </div>
+    <span>A</span>
+  </div>
+  <div class="small-item">
+    <div class="sv" style="width:48px;height:48px">
+      <svg viewBox="0 0 108 108"><rect width="108" height="108" fill="#0B0C0E"/><circle cx="108" cy="108" r="76" fill="#1A1C20" opacity=".7"/><g stroke="#F4F5F6" stroke-width="5" stroke-linecap="round" fill="none"><path d="M60 30 a7 7 0 1 0 .1 0"/><path d="M58 42 L52 60 L44 80"/><path d="M52 60 L66 72 L72 88"/><path d="M56 56 L42 66 L34 82"/><path d="M58 46 L74 44 L84 52"/><path d="M57 48 L44 54 L36 48"/></g><circle cx="60" cy="30" r="7.5" fill="#C8FF2E"/></svg>
+    </div>
+    <span>B</span>
+  </div>
+  <div class="small-item">
+    <div class="sv" style="width:48px;height:48px;border-radius:50%">
+      <svg viewBox="0 0 108 108"><circle cx="54" cy="54" r="54" fill="#FF5A1F"/><g stroke="#0B0C0E" stroke-width="7.5" stroke-linecap="round" fill="none"><path d="M56 36 a8 8 0 1 0 .1 0"/><path d="M55 46 L50 62 L43 80"/><path d="M50 62 L64 73 L70 88"/><path d="M53 58 L40 68 L34 84"/><path d="M56 49 L72 46 L82 54"/><path d="M54 51 L42 57 L35 51"/></g></svg>
+    </div>
+    <span>C</span>
+  </div>
+  <div class="small-item">
+    <div class="sv" style="width:48px;height:48px">
+      <svg viewBox="0 0 108 108"><rect width="108" height="108" fill="#0B0C0E"/><circle cx="54" cy="54" r="44" fill="none" stroke="#2B2E35" stroke-width="2"/><circle cx="54" cy="54" r="33" fill="#141619"/><g stroke="#FF5A1F" stroke-width="5.5" stroke-linecap="round" fill="none"><path d="M55 36 a6 6 0 1 0 .1 0"/><path d="M54 44 L50 58 L44 72"/><path d="M50 58 L62 67 L67 79"/><path d="M52 55 L41 63 L36 76"/><path d="M55 47 L68 45 L76 51"/><path d="M53 49 L43 54 L37 49"/></g><circle cx="55" cy="36" r="6" fill="#C8FF2E"/></svg>
+    </div>
+    <span>D</span>
+  </div>
+</div>
+
+<p class="sub" style="margin-top:22px;margin-bottom:0">下面是 48px 桌面大小，看看缩小后还认不认得出。</p>
+
+</body>
+</html>

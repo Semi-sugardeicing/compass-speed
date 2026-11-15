@@ -1,6 +1,10 @@
-<img src="docs/preview.jpg" width="320" align="right" alt="指南针主界面">
-
 <h1>指南针测速 · Compass Speed</h1>
+
+<p align="center">
+  <img src="docs/screenshot-compass.jpg" width="240" alt="指南针主界面">
+  <img src="docs/screenshot-history.jpg" width="240" alt="历史记录">
+  <img src="docs/screenshot-settings.jpg" width="240" alt="设置">
+</p>
 
 **一个能真正陪着走一段路的安卓小工具。** 打开就能看见北方在哪，抬手就知道自己走多快。
 
@@ -11,8 +15,6 @@ GPS 实时测速 · 磁力指南针 · 轨迹回放 · 海拔与爬升 · 步数
 <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge"></a>
 <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-2.0-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white">
 <img alt="WebView" src="https://img.shields.io/badge/UI-HTML%2FCSS%2FJS-E34F26?style=for-the-badge&logo=html5&logoColor=white">
-
-<br clear="right">
 
 > 界面全部跑在 WebView 里，同一份 HTML 也能在电脑浏览器直接打开当网页版用 —— 也就是说，这个 App 的界面，你在电脑上就能先看一眼。
 
